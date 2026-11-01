@@ -1,6 +1,5 @@
 import * as THREE from "three";
 import {
-  EARTH_POS,
   getSolarPlanets,
   MOON_POS,
   SUN_POS,
@@ -44,7 +43,8 @@ export type PlanetSite = {
 };
 
 /**
- * Must stay in sync with solarSystem SUN_POS / SUN_DISTANCE.
+ * Flag pole + proximity share the same anchor as the sun mesh (`SUN_POS`).
+ * No lounge proxy / offset beacon — that floated the label in empty space.
  */
 export const SUN_FLAG_POS: [number, number, number] = [
   SUN_POS.x,
@@ -52,20 +52,8 @@ export const SUN_FLAG_POS: [number, number, number] = [
   SUN_POS.z,
 ];
 
-/**
- * Plant zone just outside the sun disk, facing the lounge.
- * Must NOT sit near Earth/spawn — sun modal only when actually approaching the sun.
- */
-function sunFaceApproach(): [number, number, number] {
-  const toEarth = EARTH_POS.clone().sub(SUN_POS).normalize();
-  // Closer to the limb so Earth-side lounge never falls inside reach
-  const p = SUN_POS.clone().add(toEarth.multiplyScalar(SUN_RADIUS + 22));
-  return [p.x, p.y, p.z];
-}
-
-/** @deprecated alias — sun interact is the sun-face approach only */
-export const SUN_INTERACT_POS: [number, number, number] = sunFaceApproach();
-export const SUN_APPROACH_POS: [number, number, number] = SUN_INTERACT_POS;
+/** Same as SUN_FLAG_POS / SUN_POS — kept for call sites that named "interact". */
+export const SUN_INTERACT_POS: [number, number, number] = SUN_FLAG_POS;
 
 const solar = getSolarPlanets();
 
@@ -91,16 +79,15 @@ export const PLANET_SITES: PlanetSite[] = [
   {
     id: "sun",
     label: "태양",
+    /** Pole + modal proximity both use the sun mesh center */
     pos: SUN_FLAG_POS,
-    /** Only the sun-face zone — never a lounge/Earth proxy */
-    interactPos: SUN_INTERACT_POS,
     /**
-     * Tight enough that spawn/Earth (~200u away) never triggers,
-     * loose enough to open once you reach the sun limb.
+     * Distance from sun center. Must clear the limb (radius) so the panel
+     * opens near the surface; spawn/Earth stay far outside this sphere.
      */
-    reach: 48,
-    /** Tip just above sun surface */
-    flagLift: SUN_RADIUS + 18,
+    reach: SUN_RADIUS + 55,
+    /** Tip just above the sun limb along +Y */
+    flagLift: SUN_RADIUS + 14,
   },
 ];
 
