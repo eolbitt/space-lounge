@@ -146,13 +146,18 @@ export function Hud({ visible, action, onAction }: Props) {
           })}
         </nav>
 
-        <div className="self-end rounded-md border border-white/12 bg-[#0a1018]/5 px-3 py-2 backdrop-blur-sm sm:mb-1">
-          <p className="font-sans text-[10px] tracking-wider text-[#8a9aaa] uppercase">
-            오늘의 우주
+        <div className="flex w-full flex-col items-stretch gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <p className="max-w-xs font-sans text-[10px] leading-relaxed text-[#7a8a9a]">
+            드래그로 시야 · WASD/화살표 이동 · Q/E 상승·하강
           </p>
-          <p className="font-sans text-xs text-[#d5dde8]">
-            지구 위로 오로라가 지나가요
-          </p>
+          <div className="self-end rounded-md border border-white/12 bg-[#0a1018]/5 px-3 py-2 backdrop-blur-sm">
+            <p className="font-sans text-[10px] tracking-wider text-[#8a9aaa] uppercase">
+              오늘의 우주
+            </p>
+            <p className="font-sans text-xs text-[#d5dde8]">
+              지구 위로 오로라가 지나가요
+            </p>
+          </div>
         </div>
       </div>
     </div>

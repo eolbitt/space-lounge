@@ -2,12 +2,11 @@
 
 import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import { useTexture } from "@react-three/drei";
+import { Billboard, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 
-/** Spread across a wide lounge so drift between bodies feels real. */
+/** [x, y, z, scale] — spread in true 3D volume */
 export const ASTEROID_SPOTS: [number, number, number, number][] = [
-  // x, y, z, scale
   [-8.5, -1.2, 6.5, 1.5],
   [11.2, -0.6, 3.2, 1.05],
   [-14.5, 1.8, -4.5, 0.9],
@@ -16,40 +15,43 @@ export const ASTEROID_SPOTS: [number, number, number, number][] = [
   [-4.2, 2.4, -10.5, 0.85],
   [2.8, -0.8, -14.5, 1.1],
   [-18, -0.2, 2.5, 0.7],
+  [8.5, 3.2, -18, 0.95],
+  [-10, -2.5, -16, 1.15],
 ];
 
-export const LOOK_AT_EARTH = new THREE.Vector3(1.5, -8, -10);
+export const LOOK_AT_EARTH = new THREE.Vector3(2, -6, -14);
+export const EARTH_POS = new THREE.Vector3(2, -9, -16);
+export const MOON_POS = new THREE.Vector3(22, 10, -28);
+export const PLANET_POS = new THREE.Vector3(-24, 12, -30);
 
-function SpritePlane({
+function CelestialBillboard({
   map,
   position,
-  scale,
-  opacity = 1,
-  renderOrder = 1,
+  size,
+  renderOrder = 2,
 }: {
   map: THREE.Texture;
   position: [number, number, number];
-  scale: [number, number, number] | number;
-  opacity?: number;
+  size: number;
   renderOrder?: number;
 }) {
-  const s = typeof scale === "number" ? ([scale, scale, 1] as const) : scale;
   return (
-    <mesh position={position} scale={s} renderOrder={renderOrder}>
-      <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial
-        map={map}
-        transparent
-        opacity={opacity}
-        depthWrite={false}
-        toneMapped={false}
-        side={THREE.DoubleSide}
-      />
-    </mesh>
+    <Billboard follow position={position}>
+      <mesh renderOrder={renderOrder} scale={[size, size, 1]}>
+        <planeGeometry args={[1, 1]} />
+        <meshBasicMaterial
+          map={map}
+          transparent
+          depthWrite={false}
+          toneMapped={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+    </Billboard>
   );
 }
 
-/** Earth centerpiece; moon & ringed planet far enough to travel toward. */
+/** Celestial bodies as billboards in a real 3D volume + rocky asteroid meshes. */
 export function LoungeObjects() {
   const [earth, moon, planet, asteroid] = useTexture([
     "/assets/objects/earth.png",
@@ -60,61 +62,73 @@ export function LoungeObjects() {
 
   for (const t of [earth, moon, planet, asteroid]) {
     t.colorSpace = THREE.SRGBColorSpace;
+    t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
   }
 
-  const planetRef = useRef<THREE.Mesh>(null);
-  const moonRef = useRef<THREE.Group>(null);
+  const moonGroup = useRef<THREE.Group>(null);
+  const planetGroup = useRef<THREE.Group>(null);
+  const asteroids = useMemo(() => ASTEROID_SPOTS, []);
 
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
-    if (planetRef.current) {
-      planetRef.current.rotation.z = Math.sin(t * 0.05) * 0.04;
+    if (moonGroup.current) {
+      moonGroup.current.position.y = MOON_POS.y + Math.sin(t * 0.18) * 0.2;
     }
-    if (moonRef.current) {
-      moonRef.current.position.y = 9.5 + Math.sin(t * 0.18) * 0.12;
+    if (planetGroup.current) {
+      planetGroup.current.rotation.z = Math.sin(t * 0.05) * 0.05;
     }
   });
 
-  const asteroids = useMemo(() => ASTEROID_SPOTS, []);
-
   return (
     <group>
-      <SpritePlane
+      <CelestialBillboard
         map={earth}
-        position={[1.5, -10.5, -10]}
-        scale={[22, 22, 1]}
-        renderOrder={2}
+        position={[EARTH_POS.x, EARTH_POS.y, EARTH_POS.z]}
+        size={18}
       />
 
-      <group ref={moonRef} position={[18, 9.5, -20]}>
-        <SpritePlane map={moon} position={[0, 0, 0]} scale={5.2} renderOrder={2} />
+      <group ref={moonGroup} position={[MOON_POS.x, MOON_POS.y, MOON_POS.z]}>
+        <CelestialBillboard map={moon} position={[0, 0, 0]} size={4.8} />
       </group>
 
-      <mesh
-        ref={planetRef}
-        position={[-20, 10.5, -22]}
-        scale={[7.2, 3.7, 1]}
-        renderOrder={2}
+      <group
+        ref={planetGroup}
+        position={[PLANET_POS.x, PLANET_POS.y, PLANET_POS.z]}
       >
-        <planeGeometry args={[1, 1]} />
-        <meshBasicMaterial
-          map={planet}
-          transparent
-          depthWrite={false}
-          toneMapped={false}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
+        {/* Ringed planet as billboard (includes rings in asset) */}
+        <Billboard follow>
+          <mesh scale={[8.5, 4.4, 1]} renderOrder={2}>
+            <planeGeometry args={[1, 1]} />
+            <meshBasicMaterial
+              map={planet}
+              transparent
+              depthWrite={false}
+              toneMapped={false}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
+        </Billboard>
+      </group>
 
       {asteroids.map(([x, y, z, s], i) => (
-        <SpritePlane
-          key={i}
-          map={asteroid}
-          position={[x, y, z]}
-          scale={s}
-          opacity={0.98}
-          renderOrder={3}
-        />
+        <group key={i} position={[x, y, z]}>
+          <CelestialBillboard
+            map={asteroid}
+            position={[0, 0, 0]}
+            size={s * 1.15}
+            renderOrder={3}
+          />
+          {/* Soft 3D rock volume behind the sprite for parallax depth */}
+          <mesh rotation={[0.4 + i * 0.2, 0.6 + i * 0.15, 0.1]} scale={s * 0.35}>
+            <icosahedronGeometry args={[1, 0]} />
+            <meshStandardMaterial
+              color="#3a3a40"
+              roughness={0.95}
+              metalness={0.05}
+              flatShading
+            />
+          </mesh>
+        </group>
       ))}
     </group>
   );

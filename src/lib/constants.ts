@@ -14,11 +14,11 @@ export const IDLE_DRIFT = 0.55;
 
 /** Soft world bounds — wide lounge so celestial bodies feel reachable */
 export const WORLD_BOUNDS = {
-  x: 26,
-  yMin: -4.5,
-  yMax: 12,
-  zMin: -22,
-  zMax: 16,
+  x: 28,
+  yMin: -5,
+  yMax: 14,
+  zMin: -26,
+  zMax: 18,
 } as const;
 
 export type AvatarState = "idle" | "move" | "rest" | "wave";

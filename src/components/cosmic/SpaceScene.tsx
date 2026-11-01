@@ -23,21 +23,23 @@ export function SpaceScene({ entered, action, onHeart }: Props) {
 
   return (
     <Canvas
-      className="absolute inset-0 h-full w-full"
+      className="absolute inset-0 h-full w-full touch-none"
       dpr={[1, 1.75]}
-      camera={{ position: [0, 2, 12], fov: 46, near: 0.1, far: 320 }}
-      gl={{ antialias: true, alpha: false }}
+      camera={{ position: [0, 2.2, 14], fov: 50, near: 0.1, far: 400 }}
+      gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
       onCreated={({ gl }) => {
         gl.setClearColor(new THREE.Color("#05060f"));
+        gl.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
       }}
     >
       <Suspense fallback={null}>
-        <ambientLight intensity={0.55} color="#c8d4e8" />
+        <ambientLight intensity={0.5} color="#c8d4e8" />
         <directionalLight
-          position={[8, 12, 8]}
-          intensity={0.45}
+          position={[10, 14, 8]}
+          intensity={0.5}
           color="#fff0d0"
         />
+        <hemisphereLight args={["#6a8498", "#0a1018", 0.35]} />
 
         <LoungeBackdrop />
         <LoungeObjects />
@@ -48,20 +50,18 @@ export function SpaceScene({ entered, action, onHeart }: Props) {
           entered={entered}
         />
 
-        {entered && (
-          <Visitors playerRef={playerRef} onHeart={onHeart} />
-        )}
+        {entered && <Visitors playerRef={playerRef} onHeart={onHeart} />}
 
         <pointLight
-          position={[1.5, -5, -4]}
-          intensity={1.2}
-          distance={40}
+          position={[2, -4, -8]}
+          intensity={1.15}
+          distance={48}
           color="#6a9ad8"
         />
         <pointLight
-          position={[-6, -2, 2]}
+          position={[-8, -1, 4]}
           intensity={0.4}
-          distance={18}
+          distance={22}
           color="#ffb060"
         />
       </Suspense>

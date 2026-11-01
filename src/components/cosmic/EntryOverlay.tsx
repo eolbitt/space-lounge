@@ -25,8 +25,8 @@ export function EntryOverlay({ visible, onEnter }: Props) {
           <span className="whitespace-nowrap">같은 우주에 있는 사람들</span>
         </p>
         <p className="mt-5 max-w-md font-sans text-base leading-relaxed text-[#a8b8c8] sm:text-lg">
-          작은 우주인이 되어 천천히 떠다니세요. 말은 없습니다. 같은 밤하늘
-          어딘가에 다른 이가 떠 있을 뿐입니다.
+          작은 우주인이 되어 3D 우주를 천천히 떠다니세요. 드래그로 시야를 돌리고,
+          말은 없이 같은 밤하늘 어딘가의 이와 스쳐 지납니다.
         </p>
 
         <div className="mt-8 flex flex-wrap items-center gap-4">
