@@ -25,6 +25,8 @@ const AVATAR_SCALE = 2.95;
 const PEER_SCALE = 2.7;
 const SIT_REACH = 1.75;
 
+type SitVista = "earth" | "sun";
+
 type Seat = {
   id: string;
   x: number;
@@ -32,15 +34,17 @@ type Seat = {
   yaw: number;
   sitY: number;
   facing: number;
+  /** Fullscreen sit look — opposite (+Z) seats face Earth; window-side (−Z) face sun */
+  vista: SitVista;
 };
 
 /** Chairs at edges — walkable through (no furniture collision) */
 const SEATS: Seat[] = [
-  { id: "c0", x: -3.7, z: 2.85, yaw: 0.45, sitY: 0.32, facing: 1 },
-  { id: "c1", x: -1.85, z: 3.35, yaw: 0.08, sitY: 0.32, facing: 1 },
-  { id: "c2", x: 3.45, z: 2.7, yaw: -0.55, sitY: 0.32, facing: -1 },
-  { id: "c3", x: 1.85, z: -3.35, yaw: Math.PI * 0.9, sitY: 0.32, facing: 1 },
-  { id: "c4", x: -3.35, z: -3.2, yaw: Math.PI * 1.1, sitY: 0.32, facing: -1 },
+  { id: "c0", x: -3.7, z: 2.85, yaw: 0.45, sitY: 0.32, facing: 1, vista: "earth" },
+  { id: "c1", x: -1.85, z: 3.35, yaw: 0.08, sitY: 0.32, facing: 1, vista: "earth" },
+  { id: "c2", x: 3.45, z: 2.7, yaw: -0.55, sitY: 0.32, facing: -1, vista: "earth" },
+  { id: "c3", x: 1.85, z: -3.35, yaw: Math.PI * 0.9, sitY: 0.32, facing: 1, vista: "sun" },
+  { id: "c4", x: -3.35, z: -3.2, yaw: Math.PI * 1.1, sitY: 0.32, facing: -1, vista: "sun" },
 ];
 
 /** Soft room edge only — furniture/chairs are pass-through */
@@ -102,6 +106,7 @@ export type SitHud = {
   nearSeat: boolean;
   sitting: boolean;
   seatLabel: string | null;
+  vista: SitVista;
 };
 
 type WalkerProps = {
@@ -113,29 +118,48 @@ type WalkerProps = {
 };
 
 /**
- * Full-screen sit vista — same lounge backdrop + celestial assets,
- * camera slowly drifts (no player / no furniture HUD).
+ * Full-screen sit vista — same lounge backdrop + celestial assets.
+ * Opposite seats → Earth; window/sun-side seats → sun corridor.
  */
-function SitSpaceView() {
+function SitSpaceView({ vista }: { vista: SitVista }) {
   const look = useRef(new THREE.Vector3());
   const sunBias = useMemo(
     () => EARTH_POS.clone().lerp(SUN_POS, 0.42),
     [],
   );
+  const earthFocus = useMemo(
+    () => EARTH_POS.clone().add(new THREE.Vector3(0, 2, 4)),
+    [],
+  );
 
   useFrame(({ clock, camera }) => {
     const t = clock.elapsedTime;
-    const yaw = t * 0.028 + 0.6;
-    const pitch = 0.1 + Math.sin(t * 0.045) * 0.06;
-    const dist = 16 + Math.sin(t * 0.033) * 2.5;
-    camera.position.set(
-      Math.sin(yaw) * Math.cos(pitch) * dist + Math.sin(t * 0.02) * 1.2,
-      4.5 + Math.sin(t * 0.05) * 2.2,
-      Math.cos(yaw) * Math.cos(pitch) * dist,
-    );
-    look.current.copy(sunBias);
-    look.current.x += Math.sin(t * 0.04) * 6;
-    look.current.y += Math.cos(t * 0.035) * 4;
+    if (vista === "earth") {
+      // Hover near lounge, looking at Earth billboard
+      const yaw = -0.15 + Math.sin(t * 0.035) * 0.2;
+      const pitch = -0.18 + Math.sin(t * 0.04) * 0.05;
+      const dist = 22 + Math.sin(t * 0.03) * 2;
+      camera.position.set(
+        EARTH_POS.x + Math.sin(yaw) * dist * 0.35 + 6,
+        EARTH_POS.y + 8 + Math.sin(t * 0.05) * 1.5,
+        EARTH_POS.z + Math.cos(yaw) * dist + 10,
+      );
+      look.current.copy(earthFocus);
+      look.current.x += Math.sin(t * 0.04) * 1.5;
+      look.current.y += Math.cos(t * 0.03) * 1.2;
+    } else {
+      const yaw = t * 0.028 + 0.6;
+      const pitch = 0.1 + Math.sin(t * 0.045) * 0.06;
+      const dist = 16 + Math.sin(t * 0.033) * 2.5;
+      camera.position.set(
+        Math.sin(yaw) * Math.cos(pitch) * dist + Math.sin(t * 0.02) * 1.2,
+        4.5 + Math.sin(t * 0.05) * 2.2,
+        Math.cos(yaw) * Math.cos(pitch) * dist,
+      );
+      look.current.copy(sunBias);
+      look.current.x += Math.sin(t * 0.04) * 6;
+      look.current.y += Math.cos(t * 0.035) * 4;
+    }
     camera.lookAt(look.current);
     camera.near = 0.05;
     camera.far = 2500;
@@ -183,6 +207,7 @@ function PodWalker({
   const pos = useRef(new THREE.Vector3(-0.2, FLOOR_Y, 0.8));
   const sitting = useRef(false);
   const seatId = useRef<string | null>(null);
+  const vistaRef = useRef<SitVista>("sun");
   const publishAcc = useRef(0);
   const lastSitReq = useRef(0);
   const lastStandReq = useRef(0);
@@ -197,6 +222,7 @@ function PodWalker({
   const sitOn = useCallback((seat: Seat) => {
     sitting.current = true;
     seatId.current = seat.id;
+    vistaRef.current = seat.vista;
     pos.current.set(seat.x, seat.sitY, seat.z);
     setFacing(seat.facing);
     setState("rest");
@@ -207,6 +233,7 @@ function PodWalker({
     const seat = SEATS.find((s) => s.id === seatId.current);
     sitting.current = false;
     seatId.current = null;
+    vistaRef.current = "sun";
     if (seat) {
       // Step toward room center — no collider to snag on
       const ox = -Math.sin(seat.yaw) * 0.85;
@@ -332,6 +359,7 @@ function PodWalker({
         : near
           ? "의자 근처"
           : null,
+      vista: sitting.current ? vistaRef.current : near?.seat.vista ?? "sun",
     });
 
     publishAcc.current += clamped;
@@ -610,11 +638,12 @@ function LoungeScene({
   seatTapId,
   onSeatTap,
   sitting,
-}: WalkerProps & { onSeatTap: (id: string) => void }) {
+  vista,
+}: WalkerProps & { onSeatTap: (id: string) => void; vista: SitVista }) {
   return (
     <>
       {sitting ? (
-        <SitSpaceView />
+        <SitSpaceView vista={vista} />
       ) : (
         <LoungeRoom onSeatTap={onSeatTap} />
       )}
@@ -641,6 +670,7 @@ export function PodInterior({ visible, onExit, onSittingChange }: Props) {
     nearSeat: false,
     sitting: false,
     seatLabel: null,
+    vista: "sun",
   });
   const [sitRequest, setSitRequest] = useState(0);
   const [standRequest, setStandRequest] = useState(0);
@@ -663,7 +693,8 @@ export function PodInterior({ visible, onExit, onSittingChange }: Props) {
     setSitHud((prev) =>
       prev.nearSeat === hud.nearSeat &&
       prev.sitting === hud.sitting &&
-      prev.seatLabel === hud.seatLabel
+      prev.seatLabel === hud.seatLabel &&
+      prev.vista === hud.vista
         ? prev
         : hud,
     );
@@ -705,6 +736,7 @@ export function PodInterior({ visible, onExit, onSittingChange }: Props) {
           seatTapId={seatTapId}
           onSeatTap={onSeatTap}
           sitting={sitting}
+          vista={sitHud.vista}
         />
       </Canvas>
 
