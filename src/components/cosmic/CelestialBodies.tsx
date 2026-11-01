@@ -10,17 +10,17 @@ const EARTH_ANCHOR = new THREE.Vector3(2, -9, -16);
 
 /** Earth billboard diameter used as scale reference. */
 export const EARTH_SIZE = 18;
-/** Sun diameter ≈ 14× Earth — dominant far landmark. */
-export const SUN_DIAMETER = EARTH_SIZE * 14;
+/** Sun diameter ≈ 12× Earth — readable but distant landmark. */
+export const SUN_DIAMETER = EARTH_SIZE * 12;
 /**
- * Deep-space side opposite Earth.
- * Distance must exceed sun radius (~126) so the lounge is not inside the sphere.
+ * Deep-space side opposite Earth (farther so the disk is not in the face).
+ * Distance must exceed sun radius (~108) so the lounge is not inside the sphere.
  * Keep in sync with planetFlags SUN_FLAG_POS.
  */
 export const SUN_POS = EARTH_ANCHOR.clone()
   .multiplyScalar(-1)
   .normalize()
-  .multiplyScalar(220);
+  .multiplyScalar(420);
 
 export const BLACKHOLE_POS = new THREE.Vector3(-32, -8, -42);
 
@@ -54,12 +54,15 @@ function makeSunMatcapMaterial(map: THREE.Texture) {
           texture2D(map, uv - vec2(0.0012, 0.0012)).rgb
         ) * 0.25;
         float facing = clamp(n.z, 0.0, 1.0);
-        float limb = mix(0.86, 1.0, pow(facing, 0.4));
-        gl_FragColor = vec4(tex * limb, 1.0);
+        float limb = mix(0.9, 1.0, pow(facing, 0.35));
+        // Soft silhouette — no hard yellow rim / additive corona
+        float alpha = smoothstep(0.02, 0.28, facing);
+        gl_FragColor = vec4(tex * limb, alpha);
       }
     `,
     toneMapped: false,
     fog: false,
+    transparent: true,
     depthWrite: true,
     depthTest: true,
     side: THREE.FrontSide,
@@ -92,45 +95,14 @@ export function SunBody() {
       <mesh renderOrder={2} frustumCulled={false} material={material}>
         <sphereGeometry args={[radius, 96, 64]} />
       </mesh>
-      {/* Single soft corona — additive billboard, not stacked spheres */}
-      <Billboard follow>
-        <mesh renderOrder={1} scale={[radius * 2.55, radius * 2.55, 1]}>
-          <planeGeometry args={[1, 1]} />
-          <meshBasicMaterial
-            map={map}
-            transparent
-            opacity={0.28}
-            depthWrite={false}
-            depthTest
-            toneMapped={false}
-            blending={THREE.AdditiveBlending}
-            fog={false}
-          />
-        </mesh>
-      </Billboard>
-      <Billboard follow>
-        <mesh renderOrder={0} scale={[radius * 3.4, radius * 3.4, 1]}>
-          <circleGeometry args={[1, 48]} />
-          <meshBasicMaterial
-            color="#ff9944"
-            transparent
-            opacity={0.1}
-            depthWrite={false}
-            depthTest
-            toneMapped={false}
-            blending={THREE.AdditiveBlending}
-            fog={false}
-          />
-        </mesh>
-      </Billboard>
       <pointLight
-        intensity={2.2}
+        intensity={1.85}
         distance={SUN_DIAMETER * 3}
         decay={2}
         color="#ffd089"
       />
       <pointLight
-        intensity={0.55}
+        intensity={0.4}
         distance={SUN_DIAMETER * 5}
         decay={2}
         color="#ffe6b0"

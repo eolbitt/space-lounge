@@ -5,17 +5,16 @@ import { Canvas, ThreeEvent, useFrame, useThree } from "@react-three/fiber";
 import { useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import { Astronaut } from "./Astronaut";
-import { createMockVisitors, visitorPose } from "@/lib/presence";
 import { getPresenceRoom, type PeerPose } from "@/lib/realtime";
 import type { AvatarState } from "@/lib/constants";
 import { touchMove, touchMoveActive } from "@/lib/touchMove";
 
-/** Pod floor bounds (XZ) */
+/** Expanded pod floor bounds (XZ) — open center for walking */
 const FLOOR = {
-  minX: -4.2,
-  maxX: 4.2,
-  minZ: -3.4,
-  maxZ: 3.2,
+  minX: -5.6,
+  maxX: 5.6,
+  minZ: -4.6,
+  maxZ: 4.4,
 } as const;
 
 const PLAYER_R = 0.32;
@@ -24,7 +23,7 @@ const FLOOR_Y = 0;
 /** Chair-proportional astronaut — fill the seat, not a figurine */
 const AVATAR_SCALE = 2.95;
 const PEER_SCALE = 2.7;
-const SIT_REACH = 1.65;
+const SIT_REACH = 1.75;
 
 type Seat = {
   id: string;
@@ -36,12 +35,13 @@ type Seat = {
   facing: number;
 };
 
+/** Chairs pushed to edges — leave a wide central floor */
 const SEATS: Seat[] = [
-  { id: "c0", x: -2.55, z: 1.75, yaw: 0.45, sitY: 0.32, facing: 1 },
-  { id: "c1", x: -1.25, z: 2.1, yaw: 0.1, sitY: 0.32, facing: 1 },
-  { id: "c2", x: 2.35, z: 1.65, yaw: -0.5, sitY: 0.32, facing: -1 },
-  { id: "c3", x: 1.15, z: -2.3, yaw: Math.PI * 0.9, sitY: 0.32, facing: 1 },
-  { id: "c4", x: -2.15, z: -2.15, yaw: Math.PI * 1.1, sitY: 0.32, facing: -1 },
+  { id: "c0", x: -3.7, z: 2.85, yaw: 0.45, sitY: 0.32, facing: 1 },
+  { id: "c1", x: -1.85, z: 3.35, yaw: 0.08, sitY: 0.32, facing: 1 },
+  { id: "c2", x: 3.45, z: 2.7, yaw: -0.55, sitY: 0.32, facing: -1 },
+  { id: "c3", x: 1.85, z: -3.35, yaw: Math.PI * 0.9, sitY: 0.32, facing: 1 },
+  { id: "c4", x: -3.35, z: -3.2, yaw: Math.PI * 1.1, sitY: 0.32, facing: -1 },
 ];
 
 type CircleHit = { kind: "circle"; x: number; z: number; r: number };
@@ -55,20 +55,20 @@ type BoxHit = {
 type Hit = CircleHit | BoxHit;
 
 const COLLIDERS: Hit[] = [
-  { kind: "box", minX: -4.55, maxX: -4.15, minZ: -3.6, maxZ: 3.4 },
-  { kind: "box", minX: 4.15, maxX: 4.55, minZ: -3.6, maxZ: 3.4 },
-  { kind: "box", minX: -4.5, maxX: 4.5, minZ: -3.75, maxZ: -3.35 },
-  { kind: "box", minX: -4.5, maxX: 4.5, minZ: 3.15, maxZ: 3.55 },
+  { kind: "box", minX: -5.95, maxX: -5.55, minZ: -4.8, maxZ: 4.6 },
+  { kind: "box", minX: 5.55, maxX: 5.95, minZ: -4.8, maxZ: 4.6 },
+  { kind: "box", minX: -5.9, maxX: 5.9, minZ: -4.95, maxZ: -4.55 },
+  { kind: "box", minX: -5.9, maxX: 5.9, minZ: 4.35, maxZ: 4.75 },
   ...SEATS.map((s) => ({
     kind: "circle" as const,
     x: s.x,
     z: s.z,
     r: 0.45,
   })),
-  { kind: "box", minX: 2.85, maxX: 4.05, minZ: -1.35, maxZ: 1.35 },
-  { kind: "box", minX: -3.2, maxX: 1.6, minZ: -3.35, maxZ: -2.85 },
-  { kind: "circle", x: 3.35, z: -2.55, r: 0.4 },
-  { kind: "circle", x: -3.5, z: -0.2, r: 0.38 },
+  { kind: "box", minX: 4.05, maxX: 5.35, minZ: -1.55, maxZ: 1.55 },
+  { kind: "box", minX: -4.0, maxX: 2.0, minZ: -4.45, maxZ: -3.95 },
+  { kind: "circle", x: 4.55, z: -3.35, r: 0.4 },
+  { kind: "circle", x: -4.55, z: -0.2, r: 0.38 },
 ];
 
 function circleHitsBox(x: number, z: number, r: number, b: BoxHit) {
@@ -175,8 +175,8 @@ type WalkerProps = {
 };
 
 /**
- * Side-view follow cam + walk / sit.
- * Camera sits on +X looking across the lounge (side 3/4, not top-down iso).
+ * Elevated 3/4 follow cam + walk / sit.
+ * Corner vantage (not a flat side cutaway) so floor depth reads clearly.
  */
 function PodWalker({
   onSitHud,
@@ -188,7 +188,7 @@ function PodWalker({
   const { camera } = useThree();
   const [state, setState] = useState<AvatarState>("idle");
   const [facing, setFacing] = useState(1);
-  const pos = useRef(new THREE.Vector3(-0.4, FLOOR_Y, 1.1));
+  const pos = useRef(new THREE.Vector3(-0.2, FLOOR_Y, 0.8));
   const sitting = useRef(false);
   const seatId = useRef<string | null>(null);
   const nearId = useRef<string | null>(null);
@@ -198,9 +198,9 @@ function PodWalker({
   const lastTap = useRef<string | null>(null);
   const eWasDown = useRef(false);
   const wish = useRef(new THREE.Vector3());
-  const camTarget = useRef(new THREE.Vector3(-0.6, 1.15, 0.2));
-  /** Eye-level side 3/4 — low Y, strong +X (not top-down iso) */
-  const camPos = useRef(new THREE.Vector3(6.4, 1.55, 1.15));
+  const camTarget = useRef(new THREE.Vector3(0.2, 0.85, -0.4));
+  /** Elevated 3/4 — outside +X/+Z corner looking into the lounge */
+  const camPos = useRef(new THREE.Vector3(9.2, 5.4, 7.4));
 
   useWalkKeys(true);
 
@@ -260,7 +260,6 @@ function PodWalker({
             if (sitting.current) standUp();
             sitOn(seat);
           } else {
-            // Too far — walk impulse toward seat is enough via proximity prompt
             nearId.current = seat.id;
           }
         }
@@ -277,11 +276,10 @@ function PodWalker({
     }
     eWasDown.current = eDown;
 
-    // Side view (+X → −X): screen-up ≈ toward window (−Z), screen-right ≈ −X deeper into frame? 
-    // Keep it intuitive: W/S = ±Z (window/back), A/D = ±X (left/right of room along depth from side).
+    // W/S = ±Z (window/back), A/D = ±X
     let mx = 0;
     let mz = 0;
-    if (keys.has("w") || keys.has("arrowup")) mz -= 1; // toward window
+    if (keys.has("w") || keys.has("arrowup")) mz -= 1;
     if (keys.has("s") || keys.has("arrowdown")) mz += 1;
     if (keys.has("a") || keys.has("arrowleft")) mx -= 1;
     if (keys.has("d") || keys.has("arrowright")) mx += 1;
@@ -319,7 +317,6 @@ function PodWalker({
         pos.current.z = nz;
         pos.current.y = FLOOR_Y;
         setState("move");
-        // Face along primary motion (screen left/right = ±Z)
         if (Math.abs(wish.current.z) > 0.08) {
           setFacing(wish.current.z > 0 ? -1 : 1);
         }
@@ -344,16 +341,16 @@ function PodWalker({
           : null,
     });
 
-    // Locked side 3/4 — low elevation, slight parallax only
+    // Elevated 3/4 — room depth + floor plane readable
     camTarget.current.set(
-      pos.current.x * 0.15 - 0.5,
-      1.15,
-      pos.current.z * 0.7,
+      pos.current.x * 0.28 + 0.15,
+      0.85,
+      pos.current.z * 0.35 - 0.55,
     );
     const desired = new THREE.Vector3(
-      6.5,
-      1.55,
-      pos.current.z * 0.65 + 1.0,
+      9.0 + pos.current.x * 0.12,
+      5.35,
+      7.2 + pos.current.z * 0.22,
     );
     camPos.current.lerp(desired, 1 - Math.pow(0.004, clamped));
     camera.position.copy(camPos.current);
@@ -370,7 +367,7 @@ function PodWalker({
   });
 
   return (
-    <group ref={group} position={[-0.4, FLOOR_Y, 1.1]}>
+    <group ref={group} position={[-0.2, FLOOR_Y, 0.8]}>
       <Astronaut
         self
         state={state}
@@ -382,8 +379,8 @@ function PodWalker({
   );
 }
 
+/** Real WebSocket peers in the lounge only — no mock avatars. */
 function LoungePeers() {
-  const mocks = useMemo(() => createMockVisitors(4), []);
   const [peers, setPeers] = useState<Map<string, PeerPose>>(new Map());
 
   useEffect(() => {
@@ -403,86 +400,28 @@ function LoungePeers() {
       state: AvatarState;
       facing: number;
     }[] = [];
-    let i = 0;
     for (const peer of peers.values()) {
-      if (peer.lounge) {
-        const seat = SEATS.find(
-          (s) =>
-            Math.hypot(peer.lounge![0] - s.x, peer.lounge![1] - s.z) < 0.35,
-        );
-        list.push({
-          id: peer.id,
-          x: peer.lounge[0],
-          z: peer.lounge[1],
-          y: peer.state === "rest" && seat ? seat.sitY : FLOOR_Y,
-          state:
-            peer.state === "rest"
-              ? "rest"
-              : peer.state === "move"
-                ? "move"
-                : "idle",
-          facing: seat?.facing ?? 1,
-        });
-      } else if (i < 3) {
-        const seat = SEATS[i % SEATS.length];
-        list.push({
-          id: peer.id,
-          x: seat.x,
-          z: seat.z,
-          y: seat.sitY,
-          state: "rest",
-          facing: seat.facing,
-        });
-        i++;
-      }
+      if (!peer.lounge) continue;
+      const seat = SEATS.find(
+        (s) =>
+          Math.hypot(peer.lounge![0] - s.x, peer.lounge![1] - s.z) < 0.35,
+      );
+      list.push({
+        id: peer.id,
+        x: peer.lounge[0],
+        z: peer.lounge[1],
+        y: peer.state === "rest" && seat ? seat.sitY : FLOOR_Y,
+        state:
+          peer.state === "rest"
+            ? "rest"
+            : peer.state === "move"
+              ? "move"
+              : "idle",
+        facing: seat?.facing ?? 1,
+      });
     }
     return list;
   }, [peers]);
-
-  const mockRefs = useRef(
-    mocks.map((_, idx) => {
-      const seat = SEATS[idx % SEATS.length];
-      return {
-        x: seat.x,
-        z: seat.z,
-        y: seat.sitY,
-        facing: seat.facing,
-        state: "rest" as AvatarState,
-      };
-    }),
-  );
-
-  useFrame(({ clock }) => {
-    const t = clock.elapsedTime;
-    // Some mocks sit, one wanders the open floor
-    mocks.forEach((m, idx) => {
-      visitorPose(m, t);
-      const slot = mockRefs.current[idx];
-      if (!slot) return;
-      if (idx === 0) {
-        const a = t * 0.15;
-        const tx = Math.cos(a) * 1.1;
-        const tz = Math.sin(a * 0.85) * 0.85;
-        if (!blocked(tx, tz, 0.35)) {
-          const prevX = slot.x;
-          slot.x = THREE.MathUtils.lerp(slot.x, tx, 0.025);
-          slot.z = THREE.MathUtils.lerp(slot.z, tz, 0.025);
-          slot.y = FLOOR_Y;
-          slot.state = "move";
-          if (Math.abs(slot.x - prevX) > 0.001) {
-            slot.facing = slot.z >= 0 ? -1 : 1;
-          }
-        }
-      } else {
-        const seat = SEATS[idx % SEATS.length];
-        slot.x = seat.x;
-        slot.z = seat.z;
-        slot.y = seat.sitY;
-        slot.facing = seat.facing;
-        slot.state = "rest";
-      }
-    });
-  });
 
   return (
     <group>
@@ -491,19 +430,6 @@ function LoungePeers() {
           <Astronaut state={b.state} scale={PEER_SCALE} facing={b.facing} />
         </group>
       ))}
-      {mocks.map((m, idx) => {
-        const slot = mockRefs.current[idx];
-        if (!slot) return null;
-        return (
-          <group key={m.id} position={[slot.x, slot.y, slot.z]}>
-            <Astronaut
-              state={slot.state}
-              scale={PEER_SCALE}
-              facing={slot.facing}
-            />
-          </group>
-        );
-      })}
     </group>
   );
 }
@@ -527,7 +453,6 @@ function WarmChair({
         e.stopPropagation();
       }}
     >
-      {/* Invisible tap target */}
       <mesh position={[0, 0.55, 0]} visible={false}>
         <boxGeometry args={[0.95, 1.2, 0.95]} />
         <meshBasicMaterial />
@@ -572,79 +497,79 @@ function LoungeScene({
   return (
     <>
       <color attach="background" args={["#140e0c"]} />
-      <fog attach="fog" args={["#241810", 14, 28]} />
+      <fog attach="fog" args={["#241810", 18, 36]} />
 
       <ambientLight intensity={0.62} color="#ffe2c4" />
       <hemisphereLight args={["#ffe8d0", "#3a2818", 0.5]} />
       <directionalLight
-        position={[6, 6, 2]}
+        position={[8, 8, 4]}
         intensity={0.7}
         color="#ffd4a8"
         castShadow
       />
       <pointLight
         ref={lamp}
-        position={[-1.0, 2.4, -2.0]}
+        position={[-1.2, 2.6, -2.4]}
         intensity={1.5}
-        distance={16}
+        distance={18}
         decay={2}
         color="#ffc078"
       />
       <pointLight
-        position={[2.8, 1.8, 1.0]}
+        position={[3.4, 2.0, 1.2]}
         intensity={0.7}
-        distance={9}
+        distance={11}
         color="#ffb878"
       />
 
-      {/* Floor */}
+      {/* Floor — expanded open center */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]} receiveShadow>
-        <planeGeometry args={[9.0, 7.0]} />
+        <planeGeometry args={[11.8, 9.4]} />
         <meshStandardMaterial color="#b8956e" roughness={0.92} metalness={0.03} />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.0, 0.1]}>
-        <planeGeometry args={[5.0, 3.8]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.0, 0.15]}>
+        <planeGeometry args={[7.2, 5.6]} />
         <meshStandardMaterial color="#9a7a58" roughness={0.96} />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0.1]}>
-        <planeGeometry args={[3.4, 2.5]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0.15]}>
+        <planeGeometry args={[5.0, 3.8]} />
         <meshStandardMaterial color="#cbb08a" roughness={1} />
       </mesh>
 
       {/* Window wall (−Z) */}
-      <mesh position={[0, 1.6, -3.52]} receiveShadow>
-        <boxGeometry args={[9.0, 3.3, 0.14]} />
+      <mesh position={[0, 1.7, -4.72]} receiveShadow>
+        <boxGeometry args={[11.8, 3.5, 0.14]} />
         <meshStandardMaterial color="#e8d8c0" roughness={0.82} />
       </mesh>
       {/* Far left wall (−X) */}
-      <mesh position={[-4.42, 1.6, -0.2]} receiveShadow>
-        <boxGeometry args={[0.14, 3.3, 6.8]} />
+      <mesh position={[-5.72, 1.7, -0.15]} receiveShadow>
+        <boxGeometry args={[0.14, 3.5, 9.2]} />
         <meshStandardMaterial color="#e0d0b8" roughness={0.84} />
       </mesh>
-      {/* Camera-side (+X): open cutaway — only a short stub near window */}
-      <mesh position={[4.42, 1.6, -2.4]} receiveShadow>
-        <boxGeometry args={[0.14, 3.3, 2.2]} />
+      {/* Camera-side (+X): partial cutaway stub near window */}
+      <mesh position={[5.72, 1.7, -3.2]} receiveShadow>
+        <boxGeometry args={[0.14, 3.5, 2.8]} />
         <meshStandardMaterial color="#e0d0b8" roughness={0.84} />
       </mesh>
-      <mesh position={[-0.4, 0.5, 3.35]} receiveShadow>
-        <boxGeometry args={[7.6, 1.05, 0.12]} />
+      <mesh position={[-0.3, 0.5, 4.55]} receiveShadow>
+        <boxGeometry args={[10.2, 1.05, 0.12]} />
         <meshStandardMaterial color="#d8c4a8" roughness={0.85} />
       </mesh>
-      <mesh position={[0, 3.15, -1.5]}>
-        <boxGeometry args={[9.0, 0.1, 4.0]} />
+      <mesh position={[0, 3.35, -1.8]}>
+        <boxGeometry args={[11.8, 0.1, 5.4]} />
         <meshStandardMaterial color="#d4c0a4" roughness={0.9} />
       </mesh>
-      <mesh position={[0, 3.02, -1.9]}>
-        <boxGeometry args={[6.0, 0.04, 0.2]} />
+      <mesh position={[0, 3.22, -2.2]}>
+        <boxGeometry args={[7.5, 0.04, 0.22]} />
         <meshBasicMaterial color="#ffd7a8" toneMapped={false} />
       </mesh>
 
       {/* Window */}
-      <mesh position={[-0.5, 1.55, -3.44]}>
-        <planeGeometry args={[5.4, 2.2]} />
+      <mesh position={[-0.4, 1.65, -4.64]}>
+        <planeGeometry args={[6.4, 2.4]} />
         <meshBasicMaterial color="#070c14" toneMapped={false} />
       </mesh>
-      <mesh position={[-0.5, 1.55, -3.4]} scale={[4.0, 4.0, 1]}>
+      <mesh position={[-0.4, 1.65, -4.6]} scale={[4.6, 4.6, 1]}>
         <planeGeometry args={[1, 1]} />
         <meshBasicMaterial
           map={earth}
@@ -653,8 +578,8 @@ function LoungeScene({
           depthWrite={false}
         />
       </mesh>
-      <mesh position={[-0.5, 1.55, -3.38]}>
-        <planeGeometry args={[5.5, 2.3]} />
+      <mesh position={[-0.4, 1.65, -4.58]}>
+        <planeGeometry args={[6.5, 2.5]} />
         <meshBasicMaterial
           color="#ffb070"
           transparent
@@ -664,9 +589,9 @@ function LoungeScene({
           toneMapped={false}
         />
       </mesh>
-      {[-2.2, -0.5, 1.2].map((x) => (
-        <mesh key={x} position={[x, 1.55, -3.42]}>
-          <boxGeometry args={[0.07, 2.3, 0.08]} />
+      {[-2.6, -0.4, 1.8].map((x) => (
+        <mesh key={x} position={[x, 1.65, -4.62]}>
+          <boxGeometry args={[0.07, 2.5, 0.08]} />
           <meshStandardMaterial
             color="#8a6a48"
             roughness={0.55}
@@ -674,8 +599,8 @@ function LoungeScene({
           />
         </mesh>
       ))}
-      <mesh position={[-0.5, 0.42, -3.1]}>
-        <boxGeometry args={[5.6, 0.12, 0.55]} />
+      <mesh position={[-0.4, 0.42, -4.25]}>
+        <boxGeometry args={[6.6, 0.12, 0.55]} />
         <meshStandardMaterial color="#c4a888" roughness={0.7} />
       </mesh>
 
@@ -683,42 +608,42 @@ function LoungeScene({
         <WarmChair key={seat.id} seat={seat} onTap={onSeatTap} />
       ))}
 
-      {/* Console */}
-      <mesh position={[3.45, 0.55, -0.4]} castShadow>
-        <boxGeometry args={[0.9, 1.1, 2.2]} />
+      {/* Console — pushed to side wall */}
+      <mesh position={[4.65, 0.55, -0.35]} castShadow>
+        <boxGeometry args={[0.9, 1.1, 2.4]} />
         <meshStandardMaterial color="#c4a888" roughness={0.75} />
       </mesh>
-      <mesh position={[3.32, 1.15, -0.4]}>
-        <boxGeometry args={[0.08, 0.7, 1.4]} />
+      <mesh position={[4.5, 1.15, -0.35]}>
+        <boxGeometry args={[0.08, 0.7, 1.5]} />
         <meshBasicMaterial color="#f0c090" toneMapped={false} />
       </mesh>
       <pointLight
-        position={[3.05, 1.2, -0.4]}
+        position={[4.2, 1.2, -0.35]}
         intensity={0.6}
-        distance={4.2}
+        distance={4.5}
         color="#ffc878"
       />
 
-      <mesh position={[3.35, 0.35, -2.55]}>
+      <mesh position={[4.55, 0.35, -3.35]}>
         <cylinderGeometry args={[0.22, 0.26, 0.7, 16]} />
         <meshStandardMaterial color="#6a4a32" roughness={0.7} />
       </mesh>
-      <mesh position={[3.35, 0.85, -2.55]}>
+      <mesh position={[4.55, 0.85, -3.35]}>
         <sphereGeometry args={[0.18, 16, 12]} />
         <meshBasicMaterial color="#ffd090" toneMapped={false} />
       </mesh>
       <pointLight
-        position={[3.35, 0.9, -2.55]}
+        position={[4.55, 0.9, -3.35]}
         intensity={0.85}
         distance={3.6}
         color="#ffc070"
       />
 
-      <mesh position={[-3.5, 0.25, -0.2]}>
+      <mesh position={[-4.55, 0.25, -0.2]}>
         <cylinderGeometry args={[0.28, 0.32, 0.5, 16]} />
         <meshStandardMaterial color="#7a5a40" roughness={0.8} />
       </mesh>
-      <mesh position={[-3.5, 0.62, -0.2]}>
+      <mesh position={[-4.55, 0.62, -0.2]}>
         <sphereGeometry args={[0.32, 12, 10]} />
         <meshStandardMaterial color="#5a7a48" roughness={0.9} />
       </mesh>
@@ -751,7 +676,7 @@ export function PodInterior({ visible, onExit }: Props) {
 
   useEffect(() => {
     if (!visible) return;
-    getPresenceRoom()?.publishLounge([0.3, 0.5], "idle");
+    getPresenceRoom()?.publishLounge([0.2, 0.6], "idle");
     return () => {
       getPresenceRoom()?.clearLounge();
     };
@@ -759,7 +684,6 @@ export function PodInterior({ visible, onExit }: Props) {
 
   const onSeatTap = useCallback((id: string) => {
     setSeatTapId(id);
-    // reset so same chair can be tapped again later
     window.setTimeout(() => setSeatTapId(null), 50);
   }, []);
 
@@ -769,7 +693,7 @@ export function PodInterior({ visible, onExit }: Props) {
     <div className="absolute inset-0 z-40 animate-fade-in bg-[#140e0c]">
       <Canvas
         className="absolute inset-0 h-full w-full touch-none"
-        camera={{ position: [6.5, 1.55, 1.15], fov: 40, near: 0.05, far: 60 }}
+        camera={{ position: [9.2, 5.4, 7.4], fov: 42, near: 0.05, far: 70 }}
         gl={{ antialias: true, alpha: false }}
         dpr={[1, 1.75]}
         shadows
@@ -777,7 +701,7 @@ export function PodInterior({ visible, onExit }: Props) {
           gl.setClearColor(new THREE.Color("#140e0c"));
           gl.toneMapping = THREE.ACESFilmicToneMapping;
           gl.toneMappingExposure = 1.08;
-          camera.lookAt(-0.5, 1.15, 0.2);
+          camera.lookAt(0.2, 0.85, -0.4);
         }}
       >
         <LoungeScene

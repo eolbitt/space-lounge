@@ -28,14 +28,14 @@ export function PlanetFlags({ flags, now: _now }: Props) {
           site.pos[1] + site.flagLift,
           site.pos[2],
         ];
-        const poleLen = isSun ? 22 : site.flagLift * 0.7;
-        const clothW = isSun ? 4.2 : 1.1;
-        const clothH = isSun ? 2.1 : 0.55;
+        const poleLen = isSun ? 40 : site.flagLift * 0.7;
+        const clothW = isSun ? 8.2 : 1.1;
+        const clothH = isSun ? 4.1 : 0.55;
         return (
           <group key={site.id} position={tip}>
             <mesh position={[0, -poleLen * 0.45, 0]}>
               <cylinderGeometry
-                args={[isSun ? 0.35 : 0.04, isSun ? 0.45 : 0.05, poleLen, 6]}
+                args={[isSun ? 0.62 : 0.04, isSun ? 0.78 : 0.05, poleLen, 6]}
               />
               <meshBasicMaterial color="#d8c8a8" toneMapped={false} />
             </mesh>
@@ -52,16 +52,17 @@ export function PlanetFlags({ flags, now: _now }: Props) {
             </mesh>
             <Html
               center
-              distanceFactor={isSun ? 90 : 18}
+              distanceFactor={isSun ? 150 : 18}
               style={{ pointerEvents: "none", userSelect: "none" }}
               zIndexRange={[20, 0]}
             >
               <div
                 className="whitespace-nowrap rounded-md border border-white/25 bg-[#0a1018]/75 px-2 py-1 font-sans text-[11px] tracking-wide text-[#f2f5f8] shadow-[0_2px_12px_rgba(0,0,0,0.45)] backdrop-blur-sm"
                 style={{
-                  minWidth: "2.5rem",
+                  minWidth: isSun ? "4.5rem" : "2.5rem",
                   textAlign: "center",
-                  fontSize: isSun ? 14 : 11,
+                  fontSize: isSun ? 22 : 11,
+                  padding: isSun ? "0.45rem 0.85rem" : undefined,
                 }}
               >
                 {show && flag?.text ? (

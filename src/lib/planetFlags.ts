@@ -32,11 +32,11 @@ export type PlanetSite = {
 };
 
 /**
- * Must stay in sync with CelestialBodies SUN_POS (distance 220).
- * EARTH (2,-9,-16) → opposite unit * 220.
+ * Must stay in sync with CelestialBodies SUN_POS (distance 420).
+ * EARTH (2,-9,-16) → opposite unit * 420.
  */
 export const SUN_FLAG_POS: [number, number, number] = [
-  -23.827, 107.223, 190.618,
+  -45.489, 204.698, 363.908,
 ];
 /** Lounge-side approach toward the sun for planting the sun flag */
 export const SUN_INTERACT_POS: [number, number, number] = [-4, 16, 30];
@@ -101,7 +101,8 @@ export const PLANET_SITES: PlanetSite[] = [
     pos: SUN_FLAG_POS,
     interactPos: SUN_INTERACT_POS,
     reach: 18,
-    flagLift: 140,
+    /** Tip just above sun surface (radius ≈ 108) */
+    flagLift: 125,
   },
 ];
 

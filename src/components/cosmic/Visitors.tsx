@@ -1,14 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { Astronaut } from "./Astronaut";
-import {
-  createMockVisitors,
-  visitorPose,
-  type MockVisitor,
-} from "@/lib/presence";
 import {
   HEART_CONTACT_DISTANCE,
   HEART_COOLDOWN_MS,
@@ -30,13 +25,11 @@ type LiveBody = {
   id: string;
   position: [number, number, number];
   state: AvatarState;
-  kind: "peer" | "mock";
   facing: number;
 };
 
-/** Live BroadcastChannel peers + mock visitors as ambient fallback. */
+/** Real WebSocket / BroadcastChannel peers only — no mock avatars. */
 export function Visitors({ playerRef, onHeart, onPeerCount }: Props) {
-  const mocks = useMemo(() => createMockVisitors(), []);
   const [peers, setPeers] = useState<Map<string, PeerPose>>(new Map());
   const [live, setLive] = useState<LiveBody[]>([]);
   const throttle = useRef(0);
@@ -70,35 +63,25 @@ export function Visitors({ playerRef, onHeart, onPeerCount }: Props) {
     camRight.current.y = 0;
     if (camRight.current.lengthSq() > 1e-6) camRight.current.normalize();
 
-    const pushBody = (
-      id: string,
-      position: [number, number, number],
-      state: AvatarState,
-      kind: "peer" | "mock",
-    ) => {
-      const prev = prevPos.current.get(id);
-      let face = facingMap.current.get(id) ?? 1;
+    for (const peer of peers.values()) {
+      const position = peer.position;
+      const prev = prevPos.current.get(peer.id);
+      let face = facingMap.current.get(peer.id) ?? 1;
       if (prev) {
         const dx = position[0] - prev[0];
         const dz = position[2] - prev[2];
         const lateral = dx * camRight.current.x + dz * camRight.current.z;
         if (Math.abs(lateral) > 0.002) face = lateral > 0 ? 1 : -1;
       }
-      prevPos.current.set(id, position);
-      facingMap.current.set(id, face);
-      bodies.push({ id, position, state, kind, facing: face });
-    };
-
-    for (const peer of peers.values()) {
-      pushBody(peer.id, peer.position, peer.state, "peer");
+      prevPos.current.set(peer.id, position);
+      facingMap.current.set(peer.id, face);
+      bodies.push({
+        id: peer.id,
+        position,
+        state: peer.state,
+        facing: face,
+      });
     }
-
-    // Keep a few mock visitors when alone / sparse — ambient co-presence fallback
-    const mockBudget = Math.max(0, 5 - peers.size);
-    mocks.slice(0, mockBudget).forEach((v: MockVisitor) => {
-      const pose = visitorPose(v, t);
-      pushBody(v.id, pose.position, pose.state, "mock");
-    });
 
     setLive(bodies);
 
@@ -122,7 +105,7 @@ export function Visitors({ playerRef, onHeart, onPeerCount }: Props) {
       const sy = (-tmp.current.y * 0.5 + 0.5) * size.height;
       loungeAudio.playSfx("heart");
       onHeart({ visitorId: v.id, screenHint: { x: sx, y: sy } });
-      if (v.kind === "peer") room?.broadcastHeart(v.id);
+      room?.broadcastHeart(v.id);
     }
   });
 
@@ -132,13 +115,9 @@ export function Visitors({ playerRef, onHeart, onPeerCount }: Props) {
         <group
           key={v.id}
           position={v.position}
-          userData={{ cosmicFocus: true, kind: v.kind, id: v.id }}
+          userData={{ cosmicFocus: true, kind: "peer", id: v.id }}
         >
-          <Astronaut
-            state={v.state}
-            scale={v.kind === "peer" ? 1 : 0.92}
-            facing={v.facing}
-          />
+          <Astronaut state={v.state} scale={1} facing={v.facing} />
         </group>
       ))}
     </group>
