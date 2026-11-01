@@ -4,12 +4,7 @@ import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Billboard, useTexture } from "@react-three/drei";
 import * as THREE from "three";
-import {
-  ASTRONAUT_SRC,
-  ASTRONAUT_UP_SRC,
-  AVATAR_SIZE,
-  type AvatarState,
-} from "@/lib/constants";
+import { ASTRONAUT_SRC, AVATAR_SIZE, type AvatarState } from "@/lib/constants";
 
 type AstronautProps = {
   state?: AvatarState;
@@ -22,8 +17,9 @@ type AstronautProps = {
 };
 
 /**
- * Billboard sprite — facing mirrors left/right.
- * Space climb/dive uses dedicated sprites (no geometric tilt).
+ * Billboard sprite — same Space Lounge art for all poses.
+ * Facing snaps hard (no scale.x lerp). Up/down reuse move art with a
+ * subtle vertical squash/stretch — never the motion reference photos.
  */
 export function Astronaut({
   state = "idle",
@@ -37,28 +33,21 @@ export function Astronaut({
     ASTRONAUT_SRC.move,
     ASTRONAUT_SRC.rest,
     ASTRONAUT_SRC.wave,
-    ASTRONAUT_UP_SRC.right,
-    ASTRONAUT_UP_SRC.left,
-    ASTRONAUT_SRC.down,
   ]) as THREE.Texture[];
 
   const map = useMemo(() => {
-    let tex: THREE.Texture;
-    if (state === "up") {
-      tex = facing < 0 ? textures[5] : textures[4];
-    } else if (state === "down") {
-      tex = textures[6];
-    } else {
-      const order: AvatarState[] = ["idle", "move", "rest", "wave"];
-      const idx = order.indexOf(state);
-      tex = textures[idx] ?? textures[0];
-    }
+    // up/down share move art (consistent suit); idle/rest/wave as usual
+    const order: AvatarState[] = ["idle", "move", "rest", "wave"];
+    const visual: AvatarState =
+      state === "up" || state === "down" ? "move" : state;
+    const idx = order.indexOf(visual);
+    const tex = textures[idx] ?? textures[0];
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
     tex.premultiplyAlpha = false;
     tex.needsUpdate = true;
     return tex;
-  }, [state, facing, textures]);
+  }, [state, textures]);
 
   const bobRef = useRef<THREE.Group>(null);
   const faceGroup = useRef<THREE.Group>(null);
@@ -67,17 +56,19 @@ export function Astronaut({
   const img = map.image as { width?: number; height?: number } | undefined;
   const aspect = (img?.width || 1) / (img?.height || 1);
   const w = h * aspect;
-  // Up/down sprites already encode direction — don't mirror those
-  const mirrorFacing = state !== "up" && state !== "down";
-  /** Hard snap — no scale.x lerp (no decalcomania flip). */
+  /** Hard snap — no scale.x damp. */
   const face = facing < 0 ? -1 : 1;
 
   useFrame(({ clock }, delta) => {
     if (!bobRef.current) return;
 
     let bob = 0;
-    if (state === "rest" || state === "up" || state === "down") {
+    if (state === "rest") {
       bob = 0;
+      stepPhase.current = 0;
+    } else if (state === "up" || state === "down") {
+      // Tiny vertical cue while climbing/diving — keep art upright
+      bob = state === "up" ? 0.018 : -0.012;
       stepPhase.current = 0;
     } else if (grounded) {
       if (state === "move") {
@@ -102,7 +93,10 @@ export function Astronaut({
     if (faceGroup.current) {
       faceGroup.current.rotation.x = 0;
       faceGroup.current.rotation.z = 0;
-      faceGroup.current.scale.set(mirrorFacing ? face : 1, 1, 1);
+      // Instant mirror + slight stretch for vertical travel (same sprite)
+      const sy = state === "up" ? 1.06 : state === "down" ? 0.94 : 1;
+      const sx = face * (state === "up" || state === "down" ? 0.97 : 1);
+      faceGroup.current.scale.set(sx, sy, 1);
       faceGroup.current.position.y = 0;
     }
   });

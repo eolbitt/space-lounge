@@ -240,6 +240,7 @@ function PodWalker({
     vistaRef.current = seat.vista;
     sideRef.current = seat.side;
     pos.current.set(seat.x, seat.sitY, seat.z);
+    facingRef.current = seat.facing;
     setFacing(seat.facing);
     setState("rest");
   }, []);

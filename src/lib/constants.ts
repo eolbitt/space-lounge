@@ -37,15 +37,10 @@ export const ASTRONAUT_SRC: Record<AvatarState, string> = {
   move: "/assets/astronaut/astronaut-move.png",
   rest: "/assets/astronaut/astronaut-rest.png",
   wave: "/assets/astronaut/astronaut-wave.png",
-  /** Climb — facing picks left/right variant in Astronaut */
-  up: "/assets/astronaut/astronaut-up-right.png",
-  down: "/assets/astronaut/astronaut-down.png",
+  /** Visual = move art; Astronaut applies a subtle vertical cue */
+  up: "/assets/astronaut/astronaut-move.png",
+  down: "/assets/astronaut/astronaut-move.png",
 };
-
-export const ASTRONAUT_UP_SRC = {
-  left: "/assets/astronaut/astronaut-up-left.png",
-  right: "/assets/astronaut/astronaut-up-right.png",
-} as const;
 
 export type LoungeAction = "drift" | "still" | "wave";
 
