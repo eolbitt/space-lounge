@@ -17,11 +17,11 @@ export const IDLE_DRIFT = 0.55;
  * Sun sits ~420 units opposite Earth; allow flying close enough for real 3D scale.
  */
 export const WORLD_BOUNDS = {
-  x: 100,
-  yMin: -55,
-  yMax: 230,
+  x: 110,
+  yMin: -60,
+  yMax: 250,
   zMin: -85,
-  zMax: 320,
+  zMax: 340,
 } as const;
 
 export type AvatarState =

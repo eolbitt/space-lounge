@@ -2,8 +2,9 @@ import * as THREE from "three";
 
 /**
  * Lounge-scale solar system.
- * Earth stays near the lounge; Sun is opposite along −Earth.
- * Other planets sit along the Sun→Earth corridor with light lateral stagger.
+ * Earth stays near the lounge; Sun opposite.
+ * Mercury–Neptune (except Earth) sit BETWEEN Sun and Earth, alternating
+ * above / below the corridor so nothing hides behind Earth.
  */
 
 export const EARTH_POS = new THREE.Vector3(2, -9, -16);
@@ -18,7 +19,7 @@ export const SUN_POS = EARTH_POS.clone()
   .multiplyScalar(420);
 
 /** Moon companion — near Earth, not one of the eight. */
-export const MOON_POS = new THREE.Vector3(7, -6, -20);
+export const MOON_POS = new THREE.Vector3(8, -5.5, -12);
 
 /**
  * Deep-space black hole — parked far off the ecliptic so it does not
@@ -26,29 +27,29 @@ export const MOON_POS = new THREE.Vector3(7, -6, -20);
  */
 export const BLACKHOLE_POS = new THREE.Vector3(-95, -48, 28);
 
+/** ~10× AVATAR_SIZE (0.55) — gas giants a bit larger. */
+export const BODY_SCALE = 5.5;
+
 export type PlanetKind = "rocky" | "gas" | "ice";
 
 export type SolarPlanet = {
   id: string;
   label: string;
-  /** rocky / gas / ice — drives texture + tint */
   kind: PlanetKind;
-  /** Texture key in LoungeObjects */
   tex: "dwarf" | "moon" | "earth" | "red" | "gas" | "planet" | "ice";
   pos: THREE.Vector3;
   size: number;
-  /** Optional multiply tint */
   color?: string;
-  /** Saturn-style ring sprite */
   ringed?: boolean;
-  /** Flag interaction */
   reach: number;
   flagLift: number;
 };
 
 /**
- * Distances from sun along Sun→Earth (Earth ≈ 420). Compressed so outer
- * giants stay reachable in the lounge volume.
+ * Place bodies on Sun→Earth corridor.
+ * `frac` ∈ (0,1) = between Sun and Earth (never behind Earth).
+ * `u` = above(+)/below(−) the corridor; `s` = left/right stagger
+ * (keeps inner worlds off the sun disk).
  */
 function buildPlanets(): SolarPlanet[] {
   const toEarth = EARTH_POS.clone().sub(SUN_POS);
@@ -59,41 +60,38 @@ function buildPlanets(): SolarPlanet[] {
     .normalize();
   const up = new THREE.Vector3().crossVectors(side, forward).normalize();
 
-  const at = (
-    frac: number,
-    s: number,
-    u: number,
-  ): THREE.Vector3 =>
+  const at = (frac: number, s: number, u: number): THREE.Vector3 =>
     SUN_POS.clone()
       .add(forward.clone().multiplyScalar(dist * frac))
       .add(side.clone().multiplyScalar(s))
       .add(up.clone().multiplyScalar(u));
 
-  // Fracs kept inside WORLD_BOUNDS while preserving
-  // Sun→Mercury→…→Neptune order along the corridor.
+  const B = BODY_SCALE;
+
+  // Even fan BETWEEN Sun and Earth (frac < 1) — alternate above / below.
+  // Large |u| + |s| so worlds read above/below the corridor and clear the sun disk.
   return [
     {
       id: "mercury",
       label: "수성",
       kind: "rocky",
       tex: "dwarf",
-      // Wide lateral offset — never sit on the Earth→Sun sightline / sun disk
-      pos: at(0.34, 78, 30),
-      size: 3.2,
+      pos: at(0.24, 50, 72),
+      size: B * 1.0,
       color: "#c4b49a",
       reach: 9,
-      flagLift: 2.6,
+      flagLift: B * 0.55,
     },
     {
       id: "venus",
       label: "금성",
       kind: "rocky",
       tex: "moon",
-      pos: at(0.55, -68, -20),
-      size: 5.4,
+      pos: at(0.34, -55, -70),
+      size: B * 1.15,
       color: "#e8c878",
       reach: 10,
-      flagLift: 3.8,
+      flagLift: B * 0.65,
     },
     {
       id: "earth",
@@ -101,62 +99,62 @@ function buildPlanets(): SolarPlanet[] {
       kind: "rocky",
       tex: "earth",
       pos: EARTH_POS.clone(),
-      size: 18,
+      size: B * 2.2,
       reach: 16,
-      flagLift: 11,
+      flagLift: B * 1.4,
     },
     {
       id: "mars",
       label: "화성",
       kind: "rocky",
       tex: "red",
-      pos: at(1.04, 18, 3),
-      size: 6.2,
+      pos: at(0.44, 38, 48),
+      size: B * 1.05,
       reach: 11,
-      flagLift: 4.5,
+      flagLift: B * 0.6,
     },
     {
       id: "jupiter",
       label: "목성",
       kind: "gas",
       tex: "gas",
-      pos: at(1.06, -26, 4),
-      size: 14,
+      pos: at(0.54, -44, -42),
+      size: B * 2.0,
       reach: 14,
-      flagLift: 9,
+      flagLift: B * 1.1,
     },
     {
       id: "saturn",
       label: "토성",
       kind: "gas",
       tex: "planet",
-      pos: at(1.08, 28, -2),
-      size: 11,
+      pos: at(0.64, 40, 40),
+      size: B * 1.75,
       ringed: true,
       reach: 13,
-      flagLift: 7,
+      flagLift: B * 0.95,
     },
     {
       id: "uranus",
       label: "천왕성",
       kind: "ice",
       tex: "ice",
-      pos: at(1.09, -16, 10),
-      size: 8,
+      pos: at(0.74, -36, -36),
+      size: B * 1.35,
       color: "#a8e0d8",
       reach: 12,
-      flagLift: 5.5,
+      flagLift: B * 0.75,
     },
     {
       id: "neptune",
       label: "해왕성",
       kind: "ice",
       tex: "ice",
-      pos: at(1.1, 20, -6),
-      size: 7.6,
+      pos: at(0.84, 34, 32),
+      size: B * 1.3,
       color: "#6a8cff",
       reach: 12,
-      flagLift: 5.2,
+      flagLift: B * 0.7,
     },
   ];
 }
@@ -166,4 +164,9 @@ let cached: SolarPlanet[] | null = null;
 export function getSolarPlanets(): SolarPlanet[] {
   if (!cached) cached = buildPlanets();
   return cached;
+}
+
+/** Test helper — force rebuild after hot edits in the same process. */
+export function resetSolarPlanetsCache() {
+  cached = null;
 }
