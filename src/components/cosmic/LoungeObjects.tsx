@@ -40,7 +40,7 @@ export const ASTEROID_SPOTS: [number, number, number, number][] = [
   [-14, -3, -28, 1.1],
   [28, 10, 16, 0.8],
   [-22, 12, 4, 0.85],
-  [10, -5, -10, 1.15],
+  [16, -6.5, -2, 1.15],
   [-4, 2, 24, 0.9],
 ];
 
@@ -134,6 +134,7 @@ function SolarPlanetSprite({
   map: THREE.Texture;
 }) {
   const ringed = Boolean(planet.ringed);
+  const isEarth = planet.id === "earth";
   // Planet sprite only — no aura / circular backplate discs
   return (
     <group position={[planet.pos.x, planet.pos.y, planet.pos.z]}>
@@ -144,9 +145,10 @@ function SolarPlanetSprite({
         scaleY={ringed ? 0.52 : 1}
         roll={ringed ? RING_UPRIGHT_ROLL : 0}
         color={planet.color}
-        // Hard cut — discard soft/dark PNG limb fringe against the sun
-        alphaTest={0.45}
-        depthWrite
+        // Earth needs a soft limb — high alphaTest ate the night edge into jagged voids
+        alphaTest={isEarth ? 0.08 : 0.45}
+        depthWrite={!isEarth}
+        renderOrder={isEarth ? 3 : 2}
       />
     </group>
   );
@@ -187,6 +189,13 @@ export function LoungeObjects() {
     t.colorSpace = THREE.SRGBColorSpace;
     t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
   }
+  // Earth: smoother limb mips — reduces black stair-steps on the night rim
+  earth.generateMipmaps = true;
+  earth.minFilter = THREE.LinearMipmapLinearFilter;
+  earth.magFilter = THREE.LinearFilter;
+  earth.anisotropy = 4;
+  earth.premultiplyAlpha = false;
+  earth.needsUpdate = true;
 
   const moonGroup = useRef<THREE.Group>(null);
   const planets = useMemo(() => getSolarPlanets(), []);
