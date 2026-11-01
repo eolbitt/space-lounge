@@ -156,8 +156,16 @@ export function Hud({
               <button
                 key={item.id}
                 type="button"
-                onClick={() => onAction(item.id)}
-                className={`flex min-w-[4.6rem] flex-col items-center gap-1 rounded-full border px-3 py-2.5 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9eb8c8] sm:min-w-[5.2rem] ${
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onAction(item.id);
+                }}
+                onPointerDown={(e) => {
+                  // Keep HUD taps from reaching the canvas (orbit / double-tap focus)
+                  e.stopPropagation();
+                }}
+                className={`flex min-w-[4.6rem] flex-col items-center justify-center gap-1 rounded-full border px-3 py-2.5 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9eb8c8] sm:min-w-[5.2rem] ${
                   active
                     ? "border-white/45 bg-[#e8eef4]/16 text-[#f4f7fb]"
                     : "border-white/18 bg-[#0a1018]/55 text-[#c8d4e0] hover:border-white/35"
@@ -187,8 +195,8 @@ export function Hud({
 
         <div className="flex w-full flex-col items-stretch gap-2 sm:flex-row sm:items-end sm:justify-between">
           <p className="max-w-xs font-sans text-[10px] leading-relaxed text-[#7a8a9a]">
-            드래그 시야 · 핀치/휠 줌 · 더블클릭·탭 포커스 · WASD 이동 · Q/E
-            상승·하강
+            드래그 시야 · 핀치 줌 · 왼쪽 스틱 이동 · ↑↓ 상승·하강 · WASD/QE
+            (데스크톱)
           </p>
           <div className="self-end rounded-md border border-white/12 bg-[#0a1018]/5 px-3 py-2 backdrop-blur-sm">
             <p className="font-sans text-[10px] tracking-wider text-[#8a9aaa] uppercase">
@@ -221,7 +229,12 @@ function ToggleIcon({
       aria-label={label}
       aria-pressed={pressed}
       title={label}
-      onClick={onClick}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onClick();
+      }}
+      onPointerDown={(e) => e.stopPropagation()}
       className={`flex h-8 w-8 items-center justify-center rounded-full border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9eb8c8] ${
         pressed
           ? "border-white/30 bg-[#e8eef4]/12 text-[#e8eef4]"

@@ -6,6 +6,7 @@ import { Hud } from "./Hud";
 import { SpaceScene } from "./SpaceScene";
 import { HeartOverlay, useHeartBursts } from "./HeartOverlay";
 import { PodInterior } from "./PodInterior";
+import { TouchControls } from "./TouchControls";
 import type { LoungeAction } from "@/lib/constants";
 import { loungeAudio } from "@/lib/audio";
 import { getPresenceRoom, type SyncTransport } from "@/lib/realtime";
@@ -64,8 +65,13 @@ export function CosmicExperience() {
     setAction("drift");
   }, []);
 
+  /** Stick/vertical pad → ensure drift mode so movement isn't blocked by Rest/Wave */
+  const onTouchMoveIntent = useCallback(() => {
+    setAction((prev) => (prev === "drift" ? prev : "drift"));
+  }, []);
+
   return (
-    <main className="relative h-[100dvh] w-full overflow-hidden bg-[#05060f]">
+    <main className="relative h-[100dvh] w-full overflow-hidden overscroll-none bg-[#05060f] [-webkit-user-select:none] [user-select:none]">
       {mounted ? (
         <SpaceScene
           entered={entered && !insidePod}
@@ -92,6 +98,10 @@ export function CosmicExperience() {
         nearPod={nearPod}
         onEnterPod={enterPod}
         transport={transport}
+      />
+      <TouchControls
+        visible={entered && !insidePod}
+        onMoveIntent={onTouchMoveIntent}
       />
       <HeartOverlay
         visible={entered && !insidePod}

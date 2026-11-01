@@ -65,21 +65,21 @@ export const REST_PODS: [number, number, number, number][] = [
 export const POD_POS: [number, number, number, number] = [-6.5, 0.4, 4.2, 3.4];
 
 export const EARTH_POS = new THREE.Vector3(2, -9, -16);
-export const MOON_POS = new THREE.Vector3(22, 10, -28);
-export const PLANET_POS = new THREE.Vector3(-24, 12, -30);
+/** Mid-ground companions — kept in Earth hemisphere (−Z), away from sun limb */
+export const MOON_POS = new THREE.Vector3(28, 8, -38);
+export const PLANET_POS = new THREE.Vector3(-32, 10, -44);
 
 /**
  * Distant sky dressing — fills empty deep-space vistas.
- * Placed outside play volume; bias toward -Z forward hemisphere
- * (default orbit looks from +Z toward origin / Earth).
- * Keep well below sun diameter (180) so scale hierarchy holds.
+ * Avoid the sun cone (+Y/+Z opposite Earth) so planets never stick to the sun limb.
+ * Top/bottom far aliens are tiny parallax markers.
  */
 const DISTANT_BODIES: {
   tex: "ice" | "red" | "gas" | "dwarf" | "star" | "nebula" | "moon" | "planet";
   pos: [number, number, number];
   size: number;
 }[] = [
-  // ——— forward empty vista (−Z) ———
+  // ——— forward empty vista (−Z, Earth side) ———
   { tex: "ice", pos: [18, 14, -62], size: 12 },
   { tex: "gas", pos: [-28, 8, -70], size: 15 },
   { tex: "red", pos: [42, -6, -58], size: 8 },
@@ -92,28 +92,23 @@ const DISTANT_BODIES: {
   { tex: "dwarf", pos: [-12, 28, -55], size: 4.8 },
   { tex: "moon", pos: [5, 6, -80], size: 3.8 },
   { tex: "planet", pos: [-55, -10, -48], size: 7.2 },
-  // ——— left / right flanks ———
+  // ——— left / right flanks (not toward sun) ———
   { tex: "ice", pos: [-72, 12, -18], size: 10 },
   { tex: "red", pos: [68, 6, -22], size: 8.5 },
-  { tex: "gas", pos: [-60, -14, 8], size: 12 },
-  { tex: "planet", pos: [65, -12, 12], size: 7 },
-  { tex: "moon", pos: [-50, 22, 5], size: 4.2 },
-  { tex: "dwarf", pos: [58, 20, -8], size: 5 },
+  { tex: "gas", pos: [-60, -14, -8], size: 12 },
+  { tex: "planet", pos: [65, -12, -14], size: 7 },
+  { tex: "moon", pos: [-50, 22, -12], size: 4.2 },
+  { tex: "dwarf", pos: [58, 20, -18], size: 5 },
   { tex: "ice", pos: [-45, -18, -28], size: 6.5 },
-  { tex: "red", pos: [48, 24, 18], size: 6 },
-  // ——— above / below empty sky ———
-  { tex: "gas", pos: [12, 42, -35], size: 13 },
-  { tex: "ice", pos: [-20, 38, -20], size: 8 },
-  { tex: "planet", pos: [25, -28, -30], size: 7.5 },
-  { tex: "dwarf", pos: [-30, -26, -15], size: 5.2 },
-  { tex: "moon", pos: [0, 35, 10], size: 4 },
-  // ——— behind (+Z) so yaw still finds sky ———
-  { tex: "ice", pos: [40, 18, 55], size: 9 },
-  { tex: "red", pos: [-42, 10, 50], size: 7.5 },
-  { tex: "gas", pos: [10, -20, 62], size: 11 },
-  { tex: "dwarf", pos: [-15, 30, 45], size: 4.5 },
-  { tex: "moon", pos: [55, -8, 38], size: 3.6 },
-  // ——— bright stars (flare sprites — size reads as glow diameter) ———
+  { tex: "red", pos: [48, 24, -10], size: 6 },
+  // ——— behind (+Z) sky ONLY far off the sun axis (no ice/moon/planet on sun limb) ———
+  { tex: "nebula", pos: [70, -25, 90], size: 34 },
+  { tex: "nebula", pos: [-75, -30, 85], size: 30 },
+  { tex: "star", pos: [80, 5, 70], size: 3.2 },
+  { tex: "star", pos: [-85, -8, 65], size: 2.8 },
+  { tex: "dwarf", pos: [90, -40, 55], size: 3.5 },
+  { tex: "dwarf", pos: [-88, 35, 60], size: 3.2 },
+  // ——— bright stars ———
   { tex: "star", pos: [22, 20, -55], size: 5.5 },
   { tex: "star", pos: [-30, 14, -60], size: 4.8 },
   { tex: "star", pos: [8, -10, -72], size: 6.2 },
@@ -121,19 +116,17 @@ const DISTANT_BODIES: {
   { tex: "star", pos: [50, 16, -35], size: 5.0 },
   { tex: "star", pos: [-18, 32, -40], size: 3.8 },
   { tex: "star", pos: [35, -14, -50], size: 4.5 },
-  { tex: "star", pos: [-5, 25, 48], size: 4.0 },
-  { tex: "star", pos: [60, 5, 20], size: 3.6 },
-  { tex: "star", pos: [-65, -5, -5], size: 4.4 },
-  { tex: "star", pos: [15, 40, -15], size: 3.5 },
+  { tex: "star", pos: [60, 5, -25], size: 3.6 },
+  { tex: "star", pos: [-65, -5, -20], size: 4.4 },
+  { tex: "star", pos: [15, 40, -45], size: 3.5 },
   { tex: "star", pos: [-40, -20, -45], size: 3.9 },
-  // ——— nebula patches (soft atmosphere, lower opacity in renderer) ———
+  // ——— nebula patches (Earth hemisphere) ———
   { tex: "nebula", pos: [20, 16, -65], size: 36 },
   { tex: "nebula", pos: [-35, 12, -58], size: 40 },
   { tex: "nebula", pos: [5, 28, -48], size: 32 },
   { tex: "nebula", pos: [48, 8, -30], size: 28 },
   { tex: "nebula", pos: [-50, 6, -25], size: 30 },
-  { tex: "nebula", pos: [-10, -8, 55], size: 26 },
-  // ——— mid-far layer (fills empty sky around avatar without entering play volume) ———
+  // ——— mid-far layer ———
   { tex: "dwarf", pos: [14, 9, -26], size: 3.2 },
   { tex: "dwarf", pos: [-11, 11, -24], size: 2.8 },
   { tex: "moon", pos: [9, 16, -32], size: 3.0 },
@@ -149,13 +142,44 @@ const DISTANT_BODIES: {
   { tex: "star", pos: [-25, 5, -36], size: 2.6 },
   { tex: "dwarf", pos: [17, -5, -22], size: 2.2 },
   { tex: "moon", pos: [-8, -6, -30], size: 2.5 },
-];function CelestialBillboard({
+  // ——— TOP empty void — far alien worlds (small parallax markers) ———
+  { tex: "ice", pos: [-35, 95, -40], size: 4.2 },
+  { tex: "red", pos: [48, 110, -20], size: 3.4 },
+  { tex: "gas", pos: [12, 88, 30], size: 5.0 },
+  { tex: "planet", pos: [-60, 102, 15], size: 3.8 },
+  { tex: "dwarf", pos: [70, 78, -55], size: 2.8 },
+  { tex: "moon", pos: [-15, 120, -5], size: 2.6 },
+  { tex: "ice", pos: [30, 85, -70], size: 3.6 },
+  { tex: "red", pos: [-80, 92, -35], size: 3.2 },
+  { tex: "planet", pos: [5, 105, 45], size: 3.5 },
+  { tex: "gas", pos: [55, 130, -40], size: 4.6 },
+  { tex: "dwarf", pos: [-45, 140, -25], size: 2.4 },
+  { tex: "moon", pos: [90, 100, -50], size: 2.2 },
+  // ——— BOTTOM empty void — far alien worlds ———
+  { tex: "red", pos: [40, -70, -35], size: 4.0 },
+  { tex: "ice", pos: [-50, -85, -15], size: 3.6 },
+  { tex: "planet", pos: [15, -95, 25], size: 4.4 },
+  { tex: "gas", pos: [-25, -78, -50], size: 4.8 },
+  { tex: "dwarf", pos: [65, -60, -20], size: 2.6 },
+  { tex: "moon", pos: [-70, -88, 10], size: 3.0 },
+  { tex: "ice", pos: [8, -110, -30], size: 3.8 },
+  { tex: "red", pos: [-40, -65, 40], size: 3.4 },
+  { tex: "planet", pos: [75, -90, -45], size: 4.0 },
+  { tex: "gas", pos: [-10, -100, -60], size: 4.2 },
+  { tex: "dwarf", pos: [50, -120, 5], size: 2.5 },
+  { tex: "moon", pos: [-90, -75, -40], size: 2.8 },
+];
+
+function CelestialBillboard({
   map,
   position,
   size,
   renderOrder = 2,
   opacity = 1,
   additive = false,
+  /** Discard soft alpha so hollow sprites don't punch black holes into the sun */
+  alphaTest = 0.15,
+  depthWrite = true,
 }: {
   map: THREE.Texture;
   position: [number, number, number];
@@ -163,6 +187,8 @@ const DISTANT_BODIES: {
   renderOrder?: number;
   opacity?: number;
   additive?: boolean;
+  alphaTest?: number;
+  depthWrite?: boolean;
 }) {
   return (
     <Billboard follow position={position}>
@@ -170,9 +196,11 @@ const DISTANT_BODIES: {
         <planeGeometry args={[1, 1]} />
         <meshBasicMaterial
           map={map}
-          transparent
+          transparent={!additive}
           opacity={opacity}
-          depthWrite={false}
+          alphaTest={additive ? 0 : alphaTest}
+          depthWrite={depthWrite}
+          depthTest
           toneMapped={false}
           side={THREE.DoubleSide}
           blending={additive ? THREE.AdditiveBlending : THREE.NormalBlending}
@@ -304,6 +332,8 @@ export function LoungeObjects() {
               b.tex === "nebula" ? 0.5 : b.tex === "star" ? 0.95 : 0.96
             }
             additive={b.tex === "star"}
+            alphaTest={b.tex === "nebula" ? 0.02 : 0.12}
+            depthWrite={b.tex !== "nebula" && b.tex !== "star"}
           />
         ))}
       </group>
@@ -356,7 +386,14 @@ export function LoungeObjects() {
             position={[0, 0, 0]}
             size={s * 1.15}
             renderOrder={3}
+            alphaTest={0.45}
+            depthWrite
           />
+          {/* Solid rock plug behind the hollow sprite so the sun never shows as a “cut” */}
+          <mesh scale={s * 0.42} renderOrder={2}>
+            <sphereGeometry args={[1, 12, 10]} />
+            <meshBasicMaterial color="#2a2a30" toneMapped={false} />
+          </mesh>
           <mesh
             rotation={[0.4 + i * 0.2, 0.6 + i * 0.15, 0.1]}
             scale={s * 0.35}

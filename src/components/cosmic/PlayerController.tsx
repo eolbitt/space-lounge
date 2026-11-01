@@ -14,6 +14,7 @@ import {
 } from "@/lib/constants";
 import { loungeAudio } from "@/lib/audio";
 import { getPresenceRoom } from "@/lib/realtime";
+import { touchMove, touchMoveActive } from "@/lib/touchMove";
 
 type Props = {
   playerRef: React.RefObject<THREE.Group | null>;
@@ -48,7 +49,7 @@ function softBound(
 /**
  * Camera always frames the player dead-center.
  * Drag / pinch / wheel / double-click only change orbit yaw/pitch/zoom.
- * WASD/QE move the avatar; the camera follows the avatar as orbit target.
+ * WASD/QE (+ mobile virtual stick) move the avatar; camera follows as orbit target.
  */
 export function PlayerController({
   playerRef,
@@ -216,15 +217,21 @@ export function PlayerController({
 
     const onDown = (e: PointerEvent) => {
       if (!entered) return;
+      // Stop mobile browser scroll/zoom from stealing the gesture
+      if (e.cancelable) e.preventDefault();
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (pointers.size >= 2) {
         syncPinch();
         return;
       }
       const now = performance.now();
-      const isDouble = now - lastTap.current < 320;
+      // Mouse detail===2; touch uses time-based double-tap (ignore while dragging)
+      const isDouble =
+        e.pointerType === "mouse"
+          ? e.detail === 2
+          : now - lastTap.current < 280 && !dragging.current;
       lastTap.current = now;
-      if (isDouble || e.detail === 2) {
+      if (isDouble) {
         focusToward(e.clientX, e.clientY);
         dragging.current = false;
         return;
@@ -245,10 +252,12 @@ export function PlayerController({
         pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       }
       if (pointers.size >= 2) {
+        if (e.cancelable) e.preventDefault();
         syncPinch();
         return;
       }
       if (!dragging.current) return;
+      if (e.cancelable) e.preventDefault();
       const dx = e.clientX - lastPtr.current.x;
       const dy = e.clientY - lastPtr.current.y;
       lastPtr.current = { x: e.clientX, y: e.clientY };
@@ -282,18 +291,22 @@ export function PlayerController({
       );
     };
 
-    el.addEventListener("pointerdown", onDown);
-    el.addEventListener("pointermove", onMove);
+    // non-passive so preventDefault works on touch-capable browsers
+    el.addEventListener("pointerdown", onDown, { passive: false });
+    el.addEventListener("pointermove", onMove, { passive: false });
     el.addEventListener("pointerup", onUp);
     el.addEventListener("pointercancel", onUp);
+    el.addEventListener("lostpointercapture", onUp);
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => {
       el.removeEventListener("pointerdown", onDown);
       el.removeEventListener("pointermove", onMove);
       el.removeEventListener("pointerup", onUp);
       el.removeEventListener("pointercancel", onUp);
+      el.removeEventListener("lostpointercapture", onUp);
       el.removeEventListener("wheel", onWheel);
       pointers.clear();
+      dragging.current = false;
     };
   }, [gl, entered, camera, scene, playerRef]);
 
@@ -361,11 +374,14 @@ export function PlayerController({
     right.current.set(Math.cos(cy), 0, -Math.sin(cy)).normalize();
     up.current.set(0, 1, 0);
 
-    if (action === "wave") {
+    // Touch stick wins over Rest — lets mobile exit "가만히 있기" without a race on setState
+    const touchDriving = touchMoveActive();
+
+    if (action === "wave" && !touchDriving) {
       velocity.current.set(0, 0, 0);
       applyTilt(0);
       applyState(now < waveUntil.current ? "wave" : "idle");
-    } else if (action === "still") {
+    } else if (action === "still" && !touchDriving) {
       applyTilt(0);
       velocity.current.set(0, 0, 0);
       const near = nearestRestSpot(group.position);
@@ -403,6 +419,25 @@ export function PlayerController({
       if (keys.has("e")) {
         wish.current.sub(up.current);
         vertKey -= 1;
+      }
+
+      // Mobile virtual stick / vertical pad (WASD/QE stand-in)
+      if (touchMoveActive()) {
+        if (Math.abs(touchMove.y) > 0.08) {
+          wish.current.addScaledVector(forward.current, touchMove.y);
+        }
+        if (Math.abs(touchMove.x) > 0.08) {
+          wish.current.addScaledVector(right.current, touchMove.x);
+          latKey += touchMove.x > 0 ? 1 : -1;
+        }
+        if (touchMove.up) {
+          wish.current.add(up.current);
+          vertKey += 1;
+        }
+        if (touchMove.down) {
+          wish.current.sub(up.current);
+          vertKey -= 1;
+        }
       }
 
       if (wish.current.lengthSq() > 1e-6) {
@@ -469,6 +504,28 @@ export function PlayerController({
         [group.position.x, group.position.y, group.position.z],
         avatarStateRef.current,
       );
+      // Lightweight debug probes for visual/mobile tests
+      if (typeof window !== "undefined") {
+        const w = window as unknown as {
+          __cosmicPos?: [number, number, number];
+          __cosmicLook?: (yaw: number, pitch: number, dist?: number) => void;
+        };
+        w.__cosmicPos = [
+          group.position.x,
+          group.position.y,
+          group.position.z,
+        ];
+        w.__cosmicLook = (y, p, d) => {
+          yaw.current = y;
+          yawTarget.current = y;
+          pitch.current = p;
+          pitchTarget.current = p;
+          if (d != null) {
+            camDist.current = d;
+            camDistTarget.current = d;
+          }
+        };
+      }
     }
 
     // Orbit camera — lookAt is ALWAYS the player (screen-center lock)

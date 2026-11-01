@@ -24,7 +24,7 @@ export function LoungeBackdrop() {
       const v = Math.random();
       const theta = 2 * Math.PI * u;
       const phi = Math.acos(2 * v - 1);
-      const r = 90 + Math.random() * 40;
+      const r = 120 + Math.random() * 80;
       positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
       positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
       positions[i * 3 + 2] = r * Math.cos(phi);
@@ -51,7 +51,7 @@ export function LoungeBackdrop() {
     <group>
       {/* Soft void dome — prevents clear-color seams when looking around */}
       <mesh>
-        <sphereGeometry args={[140, 32, 32]} />
+        <sphereGeometry args={[220, 32, 32]} />
         <meshBasicMaterial
           color="#05060f"
           side={THREE.BackSide}
