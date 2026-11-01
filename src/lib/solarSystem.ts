@@ -68,15 +68,16 @@ function buildPlanets(): SolarPlanet[] {
 
   const B = BODY_SCALE;
 
-  // Even fan BETWEEN Sun and Earth (frac < 1) — alternate above / below.
-  // Large |u| + |s| so worlds read above/below the corridor and clear the sun disk.
+  // Tight band BETWEEN Sun and Earth — near the corridor axis, alternate
+  // above/below with modest |u|/|s| (not screen-edge scatter). Fracs pack
+  // toward mid–near-Earth so they read in the lounge→Sun vista.
   return [
     {
       id: "mercury",
       label: "수성",
       kind: "rocky",
       tex: "dwarf",
-      pos: at(0.24, 50, 72),
+      pos: at(0.40, 12, 16),
       size: B * 1.0,
       color: "#c4b49a",
       reach: 9,
@@ -87,7 +88,7 @@ function buildPlanets(): SolarPlanet[] {
       label: "금성",
       kind: "rocky",
       tex: "moon",
-      pos: at(0.34, -55, -70),
+      pos: at(0.48, -14, -15),
       size: B * 1.15,
       color: "#e8c878",
       reach: 10,
@@ -108,7 +109,7 @@ function buildPlanets(): SolarPlanet[] {
       label: "화성",
       kind: "rocky",
       tex: "red",
-      pos: at(0.44, 38, 48),
+      pos: at(0.56, 13, 14),
       size: B * 1.05,
       reach: 11,
       flagLift: B * 0.6,
@@ -118,7 +119,7 @@ function buildPlanets(): SolarPlanet[] {
       label: "목성",
       kind: "gas",
       tex: "gas",
-      pos: at(0.54, -44, -42),
+      pos: at(0.64, -15, -13),
       size: B * 2.0,
       reach: 14,
       flagLift: B * 1.1,
@@ -128,7 +129,7 @@ function buildPlanets(): SolarPlanet[] {
       label: "토성",
       kind: "gas",
       tex: "planet",
-      pos: at(0.64, 40, 40),
+      pos: at(0.72, 12, 12),
       size: B * 1.75,
       ringed: true,
       reach: 13,
@@ -139,7 +140,7 @@ function buildPlanets(): SolarPlanet[] {
       label: "천왕성",
       kind: "ice",
       tex: "ice",
-      pos: at(0.74, -36, -36),
+      pos: at(0.80, -12, -11),
       size: B * 1.35,
       color: "#a8e0d8",
       reach: 12,
@@ -150,7 +151,7 @@ function buildPlanets(): SolarPlanet[] {
       label: "해왕성",
       kind: "ice",
       tex: "ice",
-      pos: at(0.84, 34, 32),
+      pos: at(0.88, 10, 10),
       size: B * 1.3,
       color: "#6a8cff",
       reach: 12,
