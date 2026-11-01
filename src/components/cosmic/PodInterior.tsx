@@ -228,7 +228,6 @@ function PodWalker({
   const eWasDown = useRef(false);
   const wish = useRef(new THREE.Vector3());
   const vel = useRef(new THREE.Vector3());
-  const facingSmooth = useRef(1);
   const camTarget = useRef(new THREE.Vector3(0.2, 0.85, -0.4));
   const camPos = useRef(new THREE.Vector3(9.2, 5.4, 7.4));
 
@@ -350,20 +349,14 @@ function PodWalker({
       const speed = Math.hypot(vel.current.x, vel.current.z);
       if (speed > 0.15) {
         setState("move");
-        // Prefer screen-left/right (Z) for facing; lerp via Astronaut
-        let faceTarget = facingSmooth.current;
+        // Hard snap left/right — no facing lerp
+        let faceTarget = facing;
         if (Math.abs(vel.current.z) >= Math.abs(vel.current.x) * 0.55) {
           faceTarget = vel.current.z > 0 ? -1 : 1;
         } else if (Math.abs(vel.current.x) > 0.12) {
           faceTarget = vel.current.x > 0 ? 1 : -1;
         }
-        facingSmooth.current = THREE.MathUtils.damp(
-          facingSmooth.current,
-          faceTarget,
-          7,
-          clamped,
-        );
-        setFacing(facingSmooth.current >= 0 ? 1 : -1);
+        if (faceTarget !== facing) setFacing(faceTarget);
       } else {
         setState("idle");
       }

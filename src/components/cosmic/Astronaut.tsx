@@ -62,7 +62,6 @@ export function Astronaut({
 
   const bobRef = useRef<THREE.Group>(null);
   const faceGroup = useRef<THREE.Group>(null);
-  const facingSmoothed = useRef(facing < 0 ? -1 : 1);
   const stepPhase = useRef(0);
   const h = AVATAR_SIZE * scale;
   const img = map.image as { width?: number; height?: number } | undefined;
@@ -70,17 +69,11 @@ export function Astronaut({
   const w = h * aspect;
   // Up/down sprites already encode direction — don't mirror those
   const mirrorFacing = state !== "up" && state !== "down";
+  /** Hard snap — no scale.x lerp (no decalcomania flip). */
+  const face = facing < 0 ? -1 : 1;
 
   useFrame(({ clock }, delta) => {
     if (!bobRef.current) return;
-    const faceTarget = facing < 0 ? -1 : 1;
-    facingSmoothed.current = THREE.MathUtils.damp(
-      facingSmoothed.current,
-      faceTarget,
-      grounded ? 8 : 6,
-      delta,
-    );
-    const face = facingSmoothed.current;
 
     let bob = 0;
     if (state === "rest" || state === "up" || state === "down") {
@@ -107,11 +100,8 @@ export function Astronaut({
     bobRef.current.position.y = bob;
 
     if (faceGroup.current) {
-      // Horizontal facing only — no pitch/lean tilt in space
-      const lean =
-        grounded && state === "move" ? -face * 0.06 : 0;
       faceGroup.current.rotation.x = 0;
-      faceGroup.current.rotation.z = lean;
+      faceGroup.current.rotation.z = 0;
       faceGroup.current.scale.set(mirrorFacing ? face : 1, 1, 1);
       faceGroup.current.position.y = 0;
     }
