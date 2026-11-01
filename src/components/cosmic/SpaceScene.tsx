@@ -7,6 +7,7 @@ import { LoungeBackdrop } from "./LoungeBackdrop";
 import { LoungeObjects } from "./LoungeObjects";
 import { PlanetFlags } from "./PlanetFlags";
 import { Visitors } from "./Visitors";
+import { AmbientWanderers } from "./AmbientWanderers";
 import { PlayerController } from "./PlayerController";
 import type { LoungeAction } from "@/lib/constants";
 import { getPresenceRoom } from "@/lib/realtime";
@@ -90,6 +91,9 @@ export function SpaceScene({
           onNearPod={onNearPod}
           onNearPlanet={onNearPlanet}
         />
+
+        {/* Ambient NPCs always visible once canvas mounts — not real peers */}
+        <AmbientWanderers />
 
         {entered && (
           <Visitors
