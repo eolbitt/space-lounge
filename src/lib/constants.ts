@@ -12,13 +12,16 @@ export const HEART_COOLDOWN_MS = 14000;
 export const DRIFT_SPEED = 3.4;
 export const IDLE_DRIFT = 0.55;
 
-/** Soft world bounds — Rest scatter + sun-side approach for the sun flag */
+/**
+ * Soft world bounds — lounge + sun approach corridor.
+ * Sun sits ~420 units opposite Earth; allow flying close enough for real 3D scale.
+ */
 export const WORLD_BOUNDS = {
-  x: 42,
-  yMin: -14,
-  yMax: 24,
-  zMin: -56,
-  zMax: 38,
+  x: 80,
+  yMin: -40,
+  yMax: 230,
+  zMin: -60,
+  zMax: 320,
 } as const;
 
 export type AvatarState = "idle" | "move" | "rest" | "wave";

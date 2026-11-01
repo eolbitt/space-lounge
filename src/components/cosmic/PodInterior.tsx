@@ -341,18 +341,32 @@ function PodWalker({
           : null,
     });
 
-    // Elevated 3/4 — room depth + floor plane readable
-    camTarget.current.set(
-      pos.current.x * 0.28 + 0.15,
-      0.85,
-      pos.current.z * 0.35 - 0.55,
-    );
-    const desired = new THREE.Vector3(
-      9.0 + pos.current.x * 0.12,
-      5.35,
-      7.2 + pos.current.z * 0.22,
-    );
-    camPos.current.lerp(desired, 1 - Math.pow(0.004, clamped));
+    // Elevated 3/4 walk cam; when seated, aim through the −Z window at space
+    if (sitting.current) {
+      camTarget.current.set(
+        pos.current.x * 0.2 - 0.35,
+        1.55,
+        -4.35,
+      );
+      const desiredSit = new THREE.Vector3(
+        pos.current.x + 3.6,
+        2.55,
+        Math.max(pos.current.z + 2.8, 1.2),
+      );
+      camPos.current.lerp(desiredSit, 1 - Math.pow(0.008, clamped));
+    } else {
+      camTarget.current.set(
+        pos.current.x * 0.28 + 0.15,
+        0.85,
+        pos.current.z * 0.35 - 0.55,
+      );
+      const desired = new THREE.Vector3(
+        9.0 + pos.current.x * 0.12,
+        5.35,
+        7.2 + pos.current.z * 0.22,
+      );
+      camPos.current.lerp(desired, 1 - Math.pow(0.004, clamped));
+    }
     camera.position.copy(camPos.current);
     camera.lookAt(camTarget.current);
 

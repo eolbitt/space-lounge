@@ -7,6 +7,17 @@ import {
 
 export const ROOM_CHANNEL = "space-lounge-presence-v1";
 
+/** Max peers drawn as astronauts; full count still reported to HUD. */
+export const RENDER_NEAR_PEERS = 36;
+
+const STATE_TO_CODE: Record<AvatarState, number> = {
+  idle: 0,
+  move: 1,
+  rest: 2,
+  wave: 3,
+};
+const CODE_TO_STATE: AvatarState[] = ["idle", "move", "rest", "wave"];
+
 export type PeerPose = {
   id: string;
   position: [number, number, number];
@@ -18,11 +29,21 @@ export type PeerPose = {
 
 export type SyncTransport = "websocket" | "broadcast" | "offline";
 
+/** Compact presence wire — short keys / typed codes to cut free-tier WS bandwidth. */
+type CompactPresence = {
+  type: "s" | "h";
+  /** [id, x, y, z, stateCode, updatedAt] (+ lx, lz when in lounge) */
+  p: [string, number, number, number, number, number] | [string, number, number, number, number, number, number, number];
+};
+
 type WireMsg =
+  | CompactPresence
   | { type: "hello"; peer: PeerPose }
   | { type: "state"; peer: PeerPose }
   | { type: "bye"; id: string }
   | { type: "who"; id: string }
+  | { type: "w"; id: string }
+  | { type: "b"; id: string }
   | { type: "heart"; fromId: string; toId: string; at: number }
   | { type: "flag_set"; flag: PlanetFlag }
   | { type: "flags_sync"; flags: PlanetFlag[] };
@@ -51,12 +72,55 @@ function resolveWsUrl() {
   if (fromEnv) return fromEnv;
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
   const { hostname, host } = window.location;
-  // `next dev` + separate `dev:ws` process on :43128
   if (process.env.NODE_ENV === "development") {
     return `${proto}//${hostname || "127.0.0.1"}:43128`;
   }
-  // Production / `start:prod`: same-origin upgrade path
   return `${proto}//${host}/ws`;
+}
+
+function round3(n: number) {
+  return Math.round(n * 1000) / 1000;
+}
+
+function encodePresence(
+  kind: "s" | "h",
+  peer: PeerPose,
+): CompactPresence {
+  const base: [string, number, number, number, number, number] = [
+    peer.id,
+    round3(peer.position[0]),
+    round3(peer.position[1]),
+    round3(peer.position[2]),
+    STATE_TO_CODE[peer.state] ?? 0,
+    peer.updatedAt,
+  ];
+  if (peer.lounge) {
+    return {
+      type: kind,
+      p: [
+        ...base,
+        round3(peer.lounge[0]),
+        round3(peer.lounge[1]),
+      ] as CompactPresence["p"],
+    };
+  }
+  return { type: kind, p: base };
+}
+
+function decodePresence(msg: CompactPresence): PeerPose | null {
+  const p = msg.p;
+  if (!Array.isArray(p) || p.length < 6) return null;
+  const state = CODE_TO_STATE[p[4] as number] ?? "idle";
+  const peer: PeerPose = {
+    id: String(p[0]),
+    position: [Number(p[1]), Number(p[2]), Number(p[3])],
+    state,
+    updatedAt: Number(p[5]) || Date.now(),
+  };
+  if (p.length >= 8) {
+    peer.lounge = [Number(p[6]), Number(p[7])];
+  }
+  return peer;
 }
 
 type Listener = {
@@ -68,7 +132,7 @@ type Listener = {
 
 /**
  * Cross-device presence: WebSocket relay + BroadcastChannel fallback.
- * Anonymous astronaut poses + shared planet flags.
+ * Throttled compact pose updates — Render free friendly (~100 concurrent target).
  */
 export class PresenceRoom {
   readonly selfId: string;
@@ -80,6 +144,7 @@ export class PresenceRoom {
   private pruneTimer: number | null = null;
   private reconnectTimer: number | null = null;
   private lastSelf: PeerPose | null = null;
+  private lastPublishAt = 0;
   private transport: SyncTransport = "offline";
   private wsUrl: string | null;
 
@@ -126,20 +191,40 @@ export class PresenceRoom {
     };
   }
 
+  /**
+   * Adaptive send rate: ~10Hz near/moving, ~4–5Hz idle or far from others.
+   */
   publish(position: [number, number, number], state: AvatarState) {
+    const now = Date.now();
     const peer: PeerPose = {
       id: this.selfId,
       position,
       state,
-      updatedAt: Date.now(),
+      updatedAt: now,
       ...(this.lastSelf?.lounge ? { lounge: this.lastSelf.lounge } : {}),
     };
+
+    const interval = this.poseIntervalMs(position, state);
+    const stateChanged = this.lastSelf?.state !== state;
+    const loungeChanged =
+      JSON.stringify(this.lastSelf?.lounge) !== JSON.stringify(peer.lounge);
+    if (
+      !stateChanged &&
+      !loungeChanged &&
+      now - this.lastPublishAt < interval
+    ) {
+      this.lastSelf = peer;
+      return;
+    }
+
     this.lastSelf = peer;
-    this.post({ type: "state", peer });
+    this.lastPublishAt = now;
+    this.post(encodePresence("s", peer));
   }
 
   /** Floor-locked pose while inside the pod lounge. */
   publishLounge(lounge: [number, number], state: AvatarState) {
+    const now = Date.now();
     const base = this.lastSelf?.position ?? ([0, 0.6, 0] as [
       number,
       number,
@@ -149,11 +234,26 @@ export class PresenceRoom {
       id: this.selfId,
       position: base,
       state,
-      updatedAt: Date.now(),
+      updatedAt: now,
       lounge,
     };
+
+    const interval = state === "move" ? 110 : 220;
+    const changed =
+      this.lastSelf?.state !== state ||
+      !this.lastSelf?.lounge ||
+      Math.hypot(
+        this.lastSelf.lounge[0] - lounge[0],
+        this.lastSelf.lounge[1] - lounge[1],
+      ) > 0.04;
+    if (!changed && now - this.lastPublishAt < interval) {
+      this.lastSelf = peer;
+      return;
+    }
+
     this.lastSelf = peer;
-    this.post({ type: "state", peer });
+    this.lastPublishAt = now;
+    this.post(encodePresence("s", peer));
   }
 
   clearLounge() {
@@ -161,7 +261,8 @@ export class PresenceRoom {
     const { lounge: _drop, ...rest } = this.lastSelf;
     const peer: PeerPose = { ...rest, updatedAt: Date.now() };
     this.lastSelf = peer;
-    this.post({ type: "state", peer });
+    this.lastPublishAt = Date.now();
+    this.post(encodePresence("s", peer));
   }
 
   announce(position: [number, number, number], state: AvatarState) {
@@ -172,7 +273,8 @@ export class PresenceRoom {
       updatedAt: Date.now(),
     };
     this.lastSelf = peer;
-    this.post({ type: "hello", peer });
+    this.lastPublishAt = Date.now();
+    this.post(encodePresence("h", peer));
   }
 
   broadcastHeart(toId: string) {
@@ -184,10 +286,6 @@ export class PresenceRoom {
     });
   }
 
-  /**
-   * Plant / overwrite a planet flag.
-   * Rejected (null) while the current flag is within its 1‑minute lock.
-   */
   setPlanetFlag(planetId: string, text: string) {
     const flag = applyFlagWrite(
       this.flags.get(planetId),
@@ -227,6 +325,25 @@ export class PresenceRoom {
     singleton = null;
   }
 
+  private poseIntervalMs(
+    position: [number, number, number],
+    state: AvatarState,
+  ): number {
+    // ~8–10Hz when moving nearby; back off when idle / far
+    let ms = state === "move" || state === "wave" ? 110 : 220;
+    let nearest = Infinity;
+    for (const p of this.peers.values()) {
+      const dx = p.position[0] - position[0];
+      const dy = p.position[1] - position[1];
+      const dz = p.position[2] - position[2];
+      const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (d < nearest) nearest = d;
+    }
+    if (nearest > 55) ms = Math.max(ms, 220);
+    if (nearest > 110) ms = Math.max(ms, 350);
+    return ms;
+  }
+
   private setTransport(t: SyncTransport) {
     if (this.transport === t) return;
     this.transport = t;
@@ -241,7 +358,7 @@ export class PresenceRoom {
       ws.onopen = () => {
         this.setTransport("websocket");
         this.post({ type: "who", id: this.selfId });
-        if (this.lastSelf) this.post({ type: "hello", peer: this.lastSelf });
+        if (this.lastSelf) this.post(encodePresence("h", this.lastSelf));
       };
       ws.onmessage = (ev) => {
         try {
@@ -295,23 +412,27 @@ export class PresenceRoom {
 
   private handle(msg: WireMsg, _via: SyncTransport) {
     if (!msg || typeof msg !== "object") return;
-    if (msg.type === "who") {
-      if (msg.id === this.selfId) return;
-      if (this.lastSelf) this.post({ type: "hello", peer: this.lastSelf });
+    const kind = msg.type;
+
+    if (kind === "who" || kind === "w") {
+      const id = "id" in msg ? msg.id : undefined;
+      if (id === this.selfId) return;
+      if (this.lastSelf) this.post(encodePresence("h", this.lastSelf));
       return;
     }
-    if (msg.type === "bye") {
-      if (msg.id === this.selfId) return;
-      this.peers.delete(msg.id);
+    if (kind === "bye" || kind === "b") {
+      const id = "id" in msg ? msg.id : undefined;
+      if (!id || id === this.selfId) return;
+      this.peers.delete(id);
       this.emitPeers();
       return;
     }
-    if (msg.type === "heart") {
+    if (kind === "heart") {
       if (msg.fromId === this.selfId) return;
       for (const l of this.listeners) l.onRemoteHeart?.(msg);
       return;
     }
-    if (msg.type === "flags_sync") {
+    if (kind === "flags_sync") {
       const next = new Map<string, PlanetFlag>();
       for (const f of msg.flags || []) {
         if (f?.planetId && f.text) next.set(f.planetId, f);
@@ -321,10 +442,9 @@ export class PresenceRoom {
       this.emitFlags();
       return;
     }
-    if (msg.type === "flag_set") {
+    if (kind === "flag_set") {
       const flag = msg.flag;
       if (!flag?.planetId || !flag.text) return;
-      // Ignore echo of our own optimistic write unless remote is newer
       const prev = this.flags.get(flag.planetId);
       if (
         prev &&
@@ -337,7 +457,14 @@ export class PresenceRoom {
       this.emitFlags();
       return;
     }
-    if (msg.type === "hello" || msg.type === "state") {
+    if (kind === "s" || kind === "h") {
+      const peer = decodePresence(msg);
+      if (!peer || peer.id === this.selfId) return;
+      this.peers.set(peer.id, { ...peer, updatedAt: Date.now() });
+      this.emitPeers();
+      return;
+    }
+    if (kind === "hello" || kind === "state") {
       const peer = msg.peer;
       if (!peer || peer.id === this.selfId) return;
       this.peers.set(peer.id, { ...peer, updatedAt: Date.now() });
@@ -359,7 +486,7 @@ export class PresenceRoom {
     const now = Date.now();
     let changed = false;
     for (const [id, peer] of this.peers) {
-      if (now - peer.updatedAt > 8000) {
+      if (now - peer.updatedAt > 10000) {
         this.peers.delete(id);
         changed = true;
       }

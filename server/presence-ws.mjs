@@ -49,7 +49,13 @@ wss.on("connection", (socket) => {
       return;
     }
 
-    if (msg?.type === "who" || msg?.type === "hello") {
+    // Compact ("w"/"h") + legacy who/hello — sync flags then fan-out
+    if (
+      msg?.type === "who" ||
+      msg?.type === "hello" ||
+      msg?.type === "w" ||
+      msg?.type === "h"
+    ) {
       send(socket, flagsSyncPayload());
       broadcast(raw, socket);
       return;

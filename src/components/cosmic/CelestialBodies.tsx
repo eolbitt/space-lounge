@@ -54,15 +54,14 @@ function makeSunMatcapMaterial(map: THREE.Texture) {
           texture2D(map, uv - vec2(0.0012, 0.0012)).rgb
         ) * 0.25;
         float facing = clamp(n.z, 0.0, 1.0);
-        float limb = mix(0.9, 1.0, pow(facing, 0.35));
-        // Soft silhouette — no hard yellow rim / additive corona
-        float alpha = smoothstep(0.02, 0.28, facing);
-        gl_FragColor = vec4(tex * limb, alpha);
+        float limb = mix(0.88, 1.0, pow(facing, 0.45));
+        // Opaque sphere — real depth/occlusion + perspective scale when approaching
+        gl_FragColor = vec4(tex * limb, 1.0);
       }
     `,
     toneMapped: false,
     fog: false,
-    transparent: true,
+    transparent: false,
     depthWrite: true,
     depthTest: true,
     side: THREE.FrontSide,

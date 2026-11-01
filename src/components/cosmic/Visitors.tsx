@@ -10,7 +10,11 @@ import {
   type AvatarState,
 } from "@/lib/constants";
 import { loungeAudio } from "@/lib/audio";
-import { getPresenceRoom, type PeerPose } from "@/lib/realtime";
+import {
+  RENDER_NEAR_PEERS,
+  getPresenceRoom,
+  type PeerPose,
+} from "@/lib/realtime";
 
 type Props = {
   playerRef: React.RefObject<THREE.Group | null>;
@@ -28,7 +32,7 @@ type LiveBody = {
   facing: number;
 };
 
-/** Real WebSocket / BroadcastChannel peers only — no mock avatars. */
+/** Real WS peers — draw only nearest N; full count still reported. */
 export function Visitors({ playerRef, onHeart, onPeerCount }: Props) {
   const [peers, setPeers] = useState<Map<string, PeerPose>>(new Map());
   const [live, setLive] = useState<LiveBody[]>([]);
@@ -58,12 +62,26 @@ export function Visitors({ playerRef, onHeart, onPeerCount }: Props) {
     const now = performance.now();
     const player = playerRef.current?.position;
 
-    const bodies: LiveBody[] = [];
     camRight.current.setFromMatrixColumn(camera.matrixWorld, 0);
     camRight.current.y = 0;
     if (camRight.current.lengthSq() > 1e-6) camRight.current.normalize();
 
+    const ranked: { peer: PeerPose; d2: number }[] = [];
     for (const peer of peers.values()) {
+      let d2 = 0;
+      if (player) {
+        const dx = peer.position[0] - player.x;
+        const dy = peer.position[1] - player.y;
+        const dz = peer.position[2] - player.z;
+        d2 = dx * dx + dy * dy + dz * dz;
+      }
+      ranked.push({ peer, d2 });
+    }
+    ranked.sort((a, b) => a.d2 - b.d2);
+
+    const bodies: LiveBody[] = [];
+    const draw = ranked.slice(0, RENDER_NEAR_PEERS);
+    for (const { peer } of draw) {
       const position = peer.position;
       const prev = prevPos.current.get(peer.id);
       let face = facingMap.current.get(peer.id) ?? 1;

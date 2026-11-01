@@ -509,8 +509,9 @@ export function PlayerController({
       applyState("rest");
     }
 
+    // PresenceRoom applies 8–10Hz (+backoff) throttle; call a bit faster as input
     publishAcc.current += dt;
-    if (publishAcc.current > 0.1) {
+    if (publishAcc.current > 0.08) {
       publishAcc.current = 0;
       roomRef.current?.publish(
         [group.position.x, group.position.y, group.position.z],
