@@ -46,8 +46,12 @@ class LoungeAudioBus {
     if (!this.bgm) {
       this.bgm = new Audio(AUDIO.bgm);
       this.bgm.loop = true;
-      this.bgm.volume = 0.32;
+      this.bgm.volume = 0.36;
       this.bgm.preload = "auto";
+    } else if (!this.bgm.src.includes("deep-space-ambience")) {
+      // Prefer the looped deep-space MP3 over any prior synthetic ambient.
+      this.bgm.src = AUDIO.bgm;
+      this.bgm.loop = true;
     }
     this.started = true;
     await this.syncBgm();

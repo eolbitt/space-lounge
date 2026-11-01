@@ -33,7 +33,8 @@ export const ASTRONAUT_SRC: Record<AvatarState, string> = {
 export type LoungeAction = "drift" | "still" | "wave";
 
 export const AUDIO = {
-  bgm: "/assets/audio/ambient-space.ogg",
+  /** Looping deep-space travel ambience (MP3). */
+  bgm: "/assets/audio/deep-space-ambience.mp3",
   wave: "/assets/audio/sfx-wave.ogg",
   heart: "/assets/audio/sfx-heart.ogg",
 } as const;
