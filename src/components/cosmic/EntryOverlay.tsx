@@ -8,9 +8,11 @@ type Props = {
 export function EntryOverlay({ visible, onEnter }: Props) {
   return (
     <div
-      className={`pointer-events-none absolute inset-0 z-20 flex flex-col justify-end transition-opacity duration-1000 ${
-        visible ? "opacity-100" : "opacity-0"
-      }`}
+      className={`absolute inset-0 z-20 flex flex-col justify-end transition-opacity duration-1000 ${
+        visible
+          ? "pointer-events-none opacity-100"
+          : "pointer-events-none opacity-0"
+      } ${visible ? "" : "invisible"}`}
       aria-hidden={!visible}
     >
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#05060f] via-[#05060f]/45 to-transparent" />

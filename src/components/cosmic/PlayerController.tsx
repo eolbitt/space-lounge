@@ -440,8 +440,8 @@ export function PlayerController({
     }
 
     const rest = nearestRestSpot(group.position);
-    const enterDist = 5.2;
-    const leaveDist = 7.2;
+    const enterDist = 6.2;
+    const leaveDist = 9.5;
     let nearPod = nearPodRef.current;
     if (rest?.kind === "pod") {
       if (!nearPod && rest.dist < enterDist) nearPod = true;

@@ -12,14 +12,13 @@ export const EARTH_SIZE = 18;
 /** Sun diameter ≈ 10× Earth. */
 export const SUN_DIAMETER = EARTH_SIZE * 10;
 /**
- * Deep-space side opposite Earth (ref: empty forward vista in sun-direction-ref).
- * Placed so looking away from Earth fills the view with the sun.
+ * Deep-space side opposite Earth (ref: empty forward vista).
+ * Distance must exceed sun radius (90) so the lounge is not inside the sphere.
  */
 export const SUN_POS = EARTH_ANCHOR.clone()
   .multiplyScalar(-1)
   .normalize()
-  .multiplyScalar(58)
-  .add(new THREE.Vector3(-4, 14, 6));
+  .multiplyScalar(240);
 
 export const BLACKHOLE_POS = new THREE.Vector3(-32, -8, -42);
 

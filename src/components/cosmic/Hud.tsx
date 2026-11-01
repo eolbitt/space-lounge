@@ -136,8 +136,15 @@ export function Hud({
         {nearPod && onEnterPod && (
           <button
             type="button"
-            onClick={onEnterPod}
-            className="pointer-events-auto animate-fade-in rounded-full border border-[#e8d4b8]/40 bg-[#2a2018]/65 px-5 py-2.5 font-sans text-sm tracking-wide text-[#f3e6d4] backdrop-blur-sm transition hover:border-[#f3e6d4]/6"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onEnterPod();
+            }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+            }}
+            className="pointer-events-auto relative z-50 animate-fade-in rounded-full border border-[#e8d4b8]/40 bg-[#2a2018]/85 px-5 py-2.5 font-sans text-sm tracking-wide text-[#f3e6d4] shadow-[0_0_24px_rgba(0,0,0,0.45)] backdrop-blur-sm transition hover:border-[#f3e6d4]/6"
           >
             포드 들어가기
           </button>
