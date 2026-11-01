@@ -319,7 +319,7 @@ export function PlayerController({
       waveUntil.current = performance.now() + 2200;
       avatarStateRef.current = "wave";
       setAvatarState("wave");
-      velocity.current.set(0, 0, 0);
+      // Keep residual drift — damp in the frame loop instead of hard stop
       keys.clear();
       loungeAudio.playSfx("wave");
     }
@@ -382,12 +382,13 @@ export function PlayerController({
     const touchDriving = touchMoveActive();
 
     if (action === "wave" && !touchDriving) {
-      velocity.current.set(0, 0, 0);
+      // Soft settle into wave pose — no hard brake
+      velocity.current.lerp(new THREE.Vector3(0, 0, 0), 1 - Math.pow(0.08, dt));
       applyTilt(0);
       applyState(now < waveUntil.current ? "wave" : "idle");
     } else if (action === "still" && !touchDriving) {
       applyTilt(0);
-      velocity.current.set(0, 0, 0);
+      velocity.current.lerp(new THREE.Vector3(0, 0, 0), 1 - Math.pow(0.12, dt));
       const near = nearestRestSpot(group.position);
       const reach = near?.kind === "pod" ? 14 : 12;
       if (near && near.dist < reach) {
@@ -399,7 +400,7 @@ export function PlayerController({
         group.position.lerp(perch, 1 - Math.pow(0.025, dt));
         applyState("rest");
       } else {
-        applyState("idle");
+        applyState(velocity.current.length() > 0.4 ? "move" : "idle");
       }
     } else {
       wish.current.set(0, 0, 0);
@@ -446,29 +447,37 @@ export function PlayerController({
 
       if (wish.current.lengthSq() > 1e-6) {
         wish.current.normalize().multiplyScalar(DRIFT_SPEED);
-        velocity.current.lerp(wish.current, 0.16);
+        // Soft accel — no snap to full speed
+        velocity.current.lerp(wish.current, 1 - Math.pow(0.012, dt));
         applyState("move");
-
-        // Vertical Q/E dominates → tilt only (never left/right mirror)
-        if (Math.abs(vertKey) > 0 && Math.abs(vertKey) >= Math.abs(latKey)) {
-          applyTilt(vertKey > 0 ? 1 : -1);
-        } else {
-          applyTilt(0);
-          const lateral = wish.current.dot(right.current);
-          if (Math.abs(lateral) > 0.08) applyFacing(lateral);
-        }
       } else {
-        const t = now * 0.00012;
-        velocity.current.lerp(
-          new THREE.Vector3(
-            Math.sin(t) * IDLE_DRIFT * 0.25,
-            Math.sin(t * 0.7 + 1.2) * IDLE_DRIFT * 0.12,
-            Math.cos(t * 0.9) * IDLE_DRIFT * 0.25,
-          ),
-          0.02,
+        // Coast then settle into idle micro-float (no hard brake)
+        const t = now * 0.00011;
+        const idle = new THREE.Vector3(
+          Math.sin(t) * IDLE_DRIFT * 0.28,
+          Math.sin(t * 0.73 + 1.1) * IDLE_DRIFT * 0.14,
+          Math.cos(t * 0.91) * IDLE_DRIFT * 0.28,
         );
-        applyState(now < waveUntil.current ? "wave" : "idle");
+        velocity.current.lerp(idle, 1 - Math.pow(0.18, dt));
+        if (velocity.current.length() > 0.55) applyState("move");
+        else applyState(now < waveUntil.current ? "wave" : "idle");
+      }
+
+      // Facing / tilt from actual velocity (lag behind input for natural bank)
+      const latV = velocity.current.dot(right.current);
+      const fwdV = velocity.current.dot(forward.current);
+      const vertV = velocity.current.y;
+      if (
+        Math.abs(vertV) > 0.45 &&
+        Math.abs(vertV) >= Math.abs(latV) * 0.85
+      ) {
+        applyTilt(vertV > 0 ? 1 : -1);
+      } else {
         applyTilt(0);
+        if (Math.abs(latV) > 0.2) applyFacing(latV);
+        else if (Math.abs(fwdV) > 0.35 && Math.abs(latKey) > 0) {
+          applyFacing(latKey);
+        }
       }
 
       group.position.addScaledVector(velocity.current, dt);

@@ -214,6 +214,8 @@ function PodWalker({
   const lastTap = useRef<string | null>(null);
   const eWasDown = useRef(false);
   const wish = useRef(new THREE.Vector3());
+  const vel = useRef(new THREE.Vector3());
+  const facingSmooth = useRef(1);
   const camTarget = useRef(new THREE.Vector3(0.2, 0.85, -0.4));
   const camPos = useRef(new THREE.Vector3(9.2, 5.4, 7.4));
 
@@ -301,34 +303,54 @@ function PodWalker({
     wish.current.set(0, 0, 0);
     if (mx !== 0 || mz !== 0) {
       wish.current.set(mx, 0, mz);
-      if (wish.current.lengthSq() > 1e-6) wish.current.normalize();
+      if (wish.current.lengthSq() > 1e-6) {
+        wish.current.normalize().multiplyScalar(WALK_SPEED);
+      }
     }
 
-    const moving = wish.current.lengthSq() > 1e-4;
-
     if (sitting.current) {
+      vel.current.set(0, 0, 0);
       setState("rest");
       const seat = SEATS.find((s) => s.id === seatId.current);
       if (seat) pos.current.set(seat.x, seat.sitY, seat.z);
       g.visible = false;
     } else {
       g.visible = true;
-      if (moving) {
-        const step = WALK_SPEED * clamped;
-        const [nx, nz] = clampFloor(
-          pos.current.x + wish.current.x * step,
-          pos.current.z + wish.current.z * step,
-        );
-        pos.current.x = nx;
-        pos.current.z = nz;
-        pos.current.y = FLOOR_Y;
+      // Accel toward wish / soft damp when released — furniture pass-through
+      if (wish.current.lengthSq() > 1e-6) {
+        vel.current.lerp(wish.current, 1 - Math.pow(0.01, clamped));
+      } else {
+        vel.current.lerp(new THREE.Vector3(0, 0, 0), 1 - Math.pow(0.06, clamped));
+        if (vel.current.length() < 0.04) vel.current.set(0, 0, 0);
+      }
+
+      const [nx, nz] = clampFloor(
+        pos.current.x + vel.current.x * clamped,
+        pos.current.z + vel.current.z * clamped,
+      );
+      pos.current.x = nx;
+      pos.current.z = nz;
+      pos.current.y = FLOOR_Y;
+
+      const speed = Math.hypot(vel.current.x, vel.current.z);
+      if (speed > 0.15) {
         setState("move");
-        if (Math.abs(wish.current.z) > 0.08) {
-          setFacing(wish.current.z > 0 ? -1 : 1);
+        // Prefer screen-left/right (Z) for facing; lerp via Astronaut
+        let faceTarget = facingSmooth.current;
+        if (Math.abs(vel.current.z) >= Math.abs(vel.current.x) * 0.55) {
+          faceTarget = vel.current.z > 0 ? -1 : 1;
+        } else if (Math.abs(vel.current.x) > 0.12) {
+          faceTarget = vel.current.x > 0 ? 1 : -1;
         }
+        facingSmooth.current = THREE.MathUtils.damp(
+          facingSmooth.current,
+          faceTarget,
+          7,
+          clamped,
+        );
+        setFacing(facingSmooth.current >= 0 ? 1 : -1);
       } else {
         setState("idle");
-        pos.current.y = FLOOR_Y;
       }
 
       camTarget.current.set(
@@ -365,9 +387,10 @@ function PodWalker({
     publishAcc.current += clamped;
     if (publishAcc.current > 0.12) {
       publishAcc.current = 0;
+      const spd = Math.hypot(vel.current.x, vel.current.z);
       getPresenceRoom()?.publishLounge(
         [pos.current.x, pos.current.z],
-        sitting.current ? "rest" : moving ? "move" : "idle",
+        sitting.current ? "rest" : spd > 0.15 ? "move" : "idle",
       );
     }
   });

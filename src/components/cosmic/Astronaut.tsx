@@ -47,28 +47,47 @@ export function Astronaut({
   const bobRef = useRef<THREE.Group>(null);
   const tiltGroup = useRef<THREE.Group>(null);
   const tiltSmoothed = useRef(0);
+  const facingSmoothed = useRef(facing < 0 ? -1 : 1);
+  const stepPhase = useRef(0);
   const h = AVATAR_SIZE * scale;
   const img = map.image as { width?: number; height?: number } | undefined;
   const aspect = (img?.width || 1) / (img?.height || 1);
   const w = h * aspect;
-  const face = facing < 0 ? -1 : 1;
   const verticalMode = Math.abs(tilt) > 0.2;
 
   useFrame(({ clock }, delta) => {
     if (!bobRef.current) return;
+    const faceTarget = facing < 0 ? -1 : 1;
+    facingSmoothed.current = THREE.MathUtils.damp(
+      facingSmoothed.current,
+      faceTarget,
+      grounded ? 8 : 6,
+      delta,
+    );
+    const face = facingSmoothed.current;
+
     let bob = 0;
     if (state === "rest") {
       bob = 0;
+      stepPhase.current = 0;
     } else if (grounded) {
-      // Planted walk: short step bounce, no idle float
-      bob =
-        state === "move"
-          ? Math.abs(Math.sin(clock.elapsedTime * 7.2)) * 0.028
-          : 0;
+      if (state === "move") {
+        stepPhase.current += delta * 9.5;
+        bob = Math.abs(Math.sin(stepPhase.current)) * 0.032;
+      } else {
+        stepPhase.current = THREE.MathUtils.damp(
+          stepPhase.current,
+          0,
+          6,
+          delta,
+        );
+        bob = 0;
+      }
     } else {
-      bob =
-        Math.sin(clock.elapsedTime * (state === "move" ? 2.2 : 1.1)) *
-        (state === "move" ? 0.045 : 0.028);
+      // Space: stronger bob while moving, fine idle float when still
+      const amp = state === "move" ? 0.048 : 0.022;
+      const spd = state === "move" ? 2.4 : 0.95;
+      bob = Math.sin(clock.elapsedTime * spd) * amp;
     }
     bobRef.current.position.y = bob;
 
@@ -76,19 +95,20 @@ export function Astronaut({
     tiltSmoothed.current = THREE.MathUtils.damp(
       tiltSmoothed.current,
       target,
-      10,
+      7,
       delta,
     );
     if (tiltGroup.current) {
       const t = tiltSmoothed.current;
-      // Screen-space pitch: tip top of sprite toward/away (clear up/down read)
       tiltGroup.current.rotation.x = -t * 0.85;
-      tiltGroup.current.rotation.z = 0;
-      // Slight vertical squash when diving / stretch when climbing
-      const sy = 1 + t * 0.18;
+      // Walk lean / space bank from facing change
+      const lean =
+        grounded && state === "move" ? -face * 0.06 : (1 - Math.abs(face)) * 0.12;
+      tiltGroup.current.rotation.z = lean;
+      const sy = 1 + t * 0.16;
       const sx = face * (1 - Math.abs(t) * 0.08);
       tiltGroup.current.scale.set(sx, sy, 1);
-      tiltGroup.current.position.y = t * 0.06;
+      tiltGroup.current.position.y = t * 0.05;
     }
   });
 
