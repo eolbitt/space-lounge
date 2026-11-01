@@ -17,9 +17,9 @@ const body = IBM_Plex_Sans_KR({
 });
 
 export const metadata: Metadata = {
-  title: "혼자지만, 같은 우주에 있는 사람들",
+  title: "Space Lounge — 혼자지만, 같은 우주에 있는 사람들",
   description:
-    "작은 우주인이 되어 천천히 유영하는 침묵의 공존 공간. 채팅도 경쟁도 없이, 같은 우주에 함께 떠 있습니다.",
+    "작은 우주인이 되어 천천히 떠다니는 침묵의 공존 공간. 채팅도 경쟁도 없이, 같은 우주에 함께 떠 있습니다.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

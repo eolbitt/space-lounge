@@ -1,96 +1,79 @@
 "use client";
 
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
+import { useTexture } from "@react-three/drei";
 import * as THREE from "three";
-import { AVATAR_SIZE } from "@/lib/constants";
+import { ASTRONAUT_SRC, AVATAR_SIZE, type AvatarState } from "@/lib/constants";
 
 type AstronautProps = {
-  position?: [number, number, number];
-  suit?: string;
-  accent?: string;
+  state?: AvatarState;
   self?: boolean;
-  /** Soft bob amplitude */
-  bob?: number;
+  scale?: number;
 };
 
-/** Tiny procedural astronaut — readable silhouette, never planet-sized. */
+/** Billboard sprite astronaut — never baked into the background plate. */
 export function Astronaut({
-  position = [0, 0, 0],
-  suit = "#e8eef4",
-  accent = "#6a8aa8",
+  state = "idle",
   self = false,
-  bob = 0.04,
+  scale = 1,
 }: AstronautProps) {
-  const group = useRef<THREE.Group>(null);
-  const s = AVATAR_SIZE;
+  const textures = useTexture([
+    ASTRONAUT_SRC.idle,
+    ASTRONAUT_SRC.move,
+    ASTRONAUT_SRC.rest,
+    ASTRONAUT_SRC.wave,
+  ]) as THREE.Texture[];
 
-  useFrame(({ clock }) => {
+  const map = useMemo(() => {
+    const order: AvatarState[] = ["idle", "move", "rest", "wave"];
+    const idx = order.indexOf(state);
+    const tex = textures[idx] ?? textures[0];
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.needsUpdate = true;
+    return tex;
+  }, [state, textures]);
+
+  const mat = useRef<THREE.MeshBasicMaterial>(null);
+  const group = useRef<THREE.Group>(null);
+  const h = AVATAR_SIZE * scale;
+  const img = map.image as { width?: number; height?: number } | undefined;
+  const aspect = (img?.width || 1) / (img?.height || 1);
+  const w = h * aspect;
+
+  useFrame(({ camera, clock }) => {
     if (!group.current) return;
-    const t = clock.elapsedTime;
-    group.current.position.y = position[1] + Math.sin(t * 1.1 + position[0]) * bob;
-    group.current.rotation.z = Math.sin(t * 0.55 + position[2]) * 0.08;
-    if (self) {
-      group.current.rotation.y = Math.sin(t * 0.25) * 0.15;
+    group.current.quaternion.copy(camera.quaternion);
+    const bob =
+      state === "rest"
+        ? 0
+        : Math.sin(clock.elapsedTime * (state === "move" ? 2.2 : 1.1)) *
+          (state === "move" ? 0.04 : 0.025);
+    group.current.position.y = bob;
+    if (mat.current) {
+      mat.current.opacity = self ? 1 : 0.92;
     }
   });
 
   return (
-    <group ref={group} position={position}>
-      {/* Helmet */}
-      <mesh position={[0, s * 0.28, 0]} castShadow>
-        <sphereGeometry args={[s * 0.22, 16, 16]} />
-        <meshStandardMaterial
-          color={suit}
-          roughness={0.35}
-          metalness={0.25}
+    <group ref={group}>
+      <mesh position={[0, h * 0.5, 0]} renderOrder={10}>
+        <planeGeometry args={[w, h]} />
+        <meshBasicMaterial
+          ref={mat}
+          map={map}
+          transparent
+          depthWrite={false}
+          side={THREE.DoubleSide}
+          toneMapped={false}
         />
-      </mesh>
-      {/* Visor */}
-      <mesh position={[0, s * 0.28, s * 0.14]}>
-        <sphereGeometry args={[s * 0.16, 12, 12]} />
-        <meshStandardMaterial
-          color={self ? "#1a3048" : "#243848"}
-          roughness={0.15}
-          metalness={0.6}
-          emissive={self ? "#3a6a88" : "#1a2838"}
-          emissiveIntensity={0.35}
-        />
-      </mesh>
-      {/* Torso */}
-      <mesh position={[0, 0, 0]} castShadow>
-        <capsuleGeometry args={[s * 0.14, s * 0.22, 6, 12]} />
-        <meshStandardMaterial color={suit} roughness={0.45} metalness={0.15} />
-      </mesh>
-      {/* Pack */}
-      <mesh position={[0, 0.02, -s * 0.16]}>
-        <boxGeometry args={[s * 0.2, s * 0.22, s * 0.1]} />
-        <meshStandardMaterial color={accent} roughness={0.5} metalness={0.2} />
-      </mesh>
-      {/* Arms */}
-      <mesh position={[-s * 0.22, 0.02, 0]} rotation={[0, 0, 0.35]}>
-        <capsuleGeometry args={[s * 0.05, s * 0.16, 4, 8]} />
-        <meshStandardMaterial color={suit} roughness={0.45} />
-      </mesh>
-      <mesh position={[s * 0.22, 0.02, 0]} rotation={[0, 0, -0.35]}>
-        <capsuleGeometry args={[s * 0.05, s * 0.16, 4, 8]} />
-        <meshStandardMaterial color={suit} roughness={0.45} />
-      </mesh>
-      {/* Legs */}
-      <mesh position={[-s * 0.08, -s * 0.28, 0]}>
-        <capsuleGeometry args={[s * 0.055, s * 0.14, 4, 8]} />
-        <meshStandardMaterial color={suit} roughness={0.45} />
-      </mesh>
-      <mesh position={[s * 0.08, -s * 0.28, 0]}>
-        <capsuleGeometry args={[s * 0.055, s * 0.14, 4, 8]} />
-        <meshStandardMaterial color={suit} roughness={0.45} />
       </mesh>
       {self && (
         <pointLight
-          position={[0, s * 0.1, s * 0.3]}
-          intensity={0.55}
-          distance={4}
-          color="#9ec8e0"
+          position={[0, h * 0.4, 0.4]}
+          intensity={0.35}
+          distance={3}
+          color="#ffe6a8"
         />
       )}
     </group>

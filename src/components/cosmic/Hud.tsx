@@ -1,96 +1,124 @@
 "use client";
 
-import type { CelestialBody } from "@/lib/celestial";
-import type { MockVisitor } from "@/lib/presence";
-import type { PlayerMode } from "./PlayerController";
+import { useEffect, useState } from "react";
+import type { LoungeAction } from "@/lib/constants";
+import { mockOnlineCount } from "@/lib/presence";
 
 type Props = {
   visible: boolean;
-  mode: PlayerMode;
-  orbitTarget: CelestialBody | null;
-  nearVisitor: MockVisitor | null;
-  onDrift: () => void;
-  onLookEarth: () => void;
+  action: LoungeAction;
+  onAction: (action: LoungeAction) => void;
 };
 
-export function Hud({
-  visible,
-  mode,
-  orbitTarget,
-  nearVisitor,
-  onDrift,
-  onLookEarth,
-}: Props) {
-  if (!visible) return null;
+const ACTIONS: { id: LoungeAction; label: string; icon: string }[] = [
+  { id: "drift", label: "떠다니기", icon: "M4 13l4-4 3 3 5-6 4 4" },
+  { id: "still", label: "가만히 있기", icon: "M8 12h8M12 8v8" },
+  { id: "wave", label: "인사하기", icon: "M8 14c2-4 6-4 8 0M10 10v4M14 9v5" },
+  { id: "look", label: "바라보기", icon: "M4 12s3-5 8-5 8 5 8 5-3 5-8 5-8-5-8-5zm8 2a2 2 0 100-4 2 2 0 000 4z" },
+];
 
+function IconButton({ children }: { children: React.ReactNode }) {
   return (
-    <div className="pointer-events-none absolute inset-0 z-30 flex flex-col justify-between p-4 sm:p-6">
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <p className="font-display text-lg tracking-tight text-[#e8eef4]/90 sm:text-xl">
-            혼자지만, 같은 우주에 있는 사람들
-          </p>
-          <p className="mt-1 font-sans text-xs text-[#8a9aaa]">
-            {mode === "orbit" && orbitTarget
-              ? `${orbitTarget.nameKo} 궤도를 도는 중`
-              : mode === "lookEarth"
-                ? "지구를 바라보는 중"
-                : "천천히 유영하는 중"}
-          </p>
-        </div>
-        {nearVisitor && (
-          <div className="animate-fade-in max-w-[12rem] rounded-sm border border-[#c8d8e8]/20 bg-[#0a1018]/55 px-3 py-2 text-right backdrop-blur-sm">
-            <p className="font-sans text-[10px] tracking-wider text-[#7a8a9a] uppercase">
-              가까이 지나감
-            </p>
-            <p className="font-sans text-sm text-[#c8d8e8]">
-              {nearVisitor.nameKo}
-            </p>
-          </div>
-        )}
-      </header>
-
-      <footer className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <p className="max-w-xs font-sans text-xs leading-relaxed text-[#7a8a9a]">
-          WASD 또는 화살표로 드리프트 · 행성을 클릭하면 궤도 · Q/E로 상승·하강
-        </p>
-        <div className="pointer-events-auto flex flex-wrap gap-2">
-          <ActionButton
-            active={mode === "drift"}
-            onClick={onDrift}
-            label="유영하기"
-          />
-          <ActionButton
-            active={mode === "lookEarth"}
-            onClick={onLookEarth}
-            label="지구 바라보기"
-          />
-        </div>
-      </footer>
-    </div>
+    <span className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-[#0a1018]/4 text-[#c8d4e0]/80">
+      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5">
+        {children}
+      </svg>
+    </span>
   );
 }
 
-function ActionButton({
-  label,
-  onClick,
-  active,
-}: {
-  label: string;
-  onClick: () => void;
-  active?: boolean;
-}) {
+export function Hud({ visible, action, onAction }: Props) {
+  const [online, setOnline] = useState(213);
+
+  useEffect(() => {
+    if (!visible) return;
+    const id = window.setInterval(() => setOnline(mockOnlineCount()), 5000);
+    setOnline(mockOnlineCount());
+    return () => window.clearInterval(id);
+  }, [visible]);
+
+  if (!visible) return null;
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-sm border px-4 py-2 font-sans text-xs tracking-wide transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9eb8c8] ${
-        active
-          ? "border-[#d0dce8]/55 bg-[#e8eef4]/18 text-[#eef3f7]"
-          : "border-[#c8d4e0]/25 bg-[#0a1018]/45 text-[#b8c8d8] hover:border-[#c8d4e0]/50"
-      }`}
-    >
-      {label}
-    </button>
+    <div className="pointer-events-none absolute inset-0 z-30 flex flex-col justify-between p-4 sm:p-5">
+      <header className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <div className="flex items-center gap-2">
+            <span
+              aria-hidden
+              className="inline-block h-3.5 w-3.5 rounded-full border border-[#d8e4f0]/70 bg-[#1a3a6d]/80 shadow-[0_0_10px_rgba(120,170,220,0.35)]"
+            />
+            <p className="font-display text-lg tracking-tight text-[#f2f5f8] sm:text-xl">
+              Space Lounge
+            </p>
+          </div>
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-[#0a1018]/55 px-3 py-1.5 backdrop-blur-sm">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#7dffb0]" />
+            <p className="font-sans text-xs text-[#d5dde8] sm:text-sm">
+              지금 <span className="text-[#f4f7fb]">{online}명</span>이 같은 우주에
+              있어요
+            </p>
+          </div>
+        </div>
+
+        <div className="hidden items-center gap-2 sm:flex" aria-hidden>
+          <IconButton>
+            <path d="M9 18V6l10-2v12" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx="7" cy="18" r="2" />
+            <circle cx="17" cy="16" r="2" />
+          </IconButton>
+          <IconButton>
+            <path d="M4 10v4M8 8v8M12 6v12M16 9v6M20 11v2" strokeLinecap="round" />
+          </IconButton>
+          <IconButton>
+            <circle cx="12" cy="12" r="3" />
+            <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4" strokeLinecap="round" />
+          </IconButton>
+        </div>
+      </header>
+
+      <div className="flex flex-col items-center gap-3">
+        <nav className="pointer-events-auto flex flex-wrap items-end justify-center gap-2 sm:gap-3">
+          {ACTIONS.map((item) => {
+            const active = action === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onAction(item.id)}
+                className={`flex min-w-[4.6rem] flex-col items-center gap-1 rounded-full border px-3 py-2.5 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9eb8c8] sm:min-w-[5.2rem] ${
+                  active
+                    ? "border-white/45 bg-[#e8eef4]/16 text-[#f4f7fb]"
+                    : "border-white/18 bg-[#0a1018]/55 text-[#c8d4e0] hover:border-white/35"
+                }`}
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  aria-hidden
+                >
+                  <path d={item.icon} strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <span className="font-sans text-[11px] tracking-wide">
+                  {item.label}
+                </span>
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="self-end rounded-md border border-white/12 bg-[#0a1018]/5 px-3 py-2 backdrop-blur-sm sm:mb-1">
+          <p className="font-sans text-[10px] tracking-wider text-[#8a9aaa] uppercase">
+            오늘의 우주
+          </p>
+          <p className="font-sans text-xs text-[#d5dde8]">
+            지구 위로 오로라가 지나가요
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }
