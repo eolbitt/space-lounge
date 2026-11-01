@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { Astronaut } from "./Astronaut";
-import { LOOK_AT_EARTH, nearestAsteroid } from "./LoungeObjects";
+import { LOOK_AT_EARTH, nearestRestSpot } from "./LoungeObjects";
 import {
   DRIFT_SPEED,
   IDLE_DRIFT,
@@ -13,6 +13,7 @@ import {
   type LoungeAction,
 } from "@/lib/constants";
 import { loungeAudio } from "@/lib/audio";
+import { getPresenceRoom } from "@/lib/realtime";
 
 type Props = {
   playerRef: React.RefObject<THREE.Group | null>;
@@ -35,6 +36,8 @@ export function PlayerController({ playerRef, action, entered }: Props) {
   const dragging = useRef(false);
   const lastPtr = useRef({ x: 0, y: 0 });
   const lookEase = useRef(new THREE.Vector3());
+  const publishAcc = useRef(0);
+  const roomRef = useRef(getPresenceRoom());
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => keys.add(e.key.toLowerCase());
@@ -46,6 +49,25 @@ export function PlayerController({ playerRef, action, entered }: Props) {
       window.removeEventListener("keyup", up);
     };
   }, []);
+
+  useEffect(() => {
+    if (!entered) return;
+    const room = getPresenceRoom();
+    roomRef.current = room;
+    const group = playerRef.current;
+    if (room && group) {
+      room.announce(
+        [group.position.x, group.position.y, group.position.z],
+        "idle",
+      );
+    }
+    const onUnload = () => room?.leave();
+    window.addEventListener("pagehide", onUnload);
+    return () => {
+      window.removeEventListener("pagehide", onUnload);
+      room?.leave();
+    };
+  }, [entered, playerRef]);
 
   useEffect(() => {
     const el = gl.domElement;
@@ -137,11 +159,12 @@ export function PlayerController({ playerRef, action, entered }: Props) {
       yaw.current = THREE.MathUtils.lerp(yaw.current, targetYaw, 0.04);
       pitch.current = THREE.MathUtils.lerp(pitch.current, targetPitch, 0.04);
     } else if (action === "still" || action === "wave") {
-      const near = nearestAsteroid(group.position);
-      if (near && near.dist < 12) {
+      const near = nearestRestSpot(group.position);
+      const reach = near?.kind === "pod" ? 14 : 12;
+      if (near && near.dist < reach) {
         const perch = new THREE.Vector3(
           near.spot[0],
-          near.spot[1] + 0.5 + near.spot[3] * 0.18,
+          near.spot[1] + 0.5 + near.spot[3] * 0.12,
           near.spot[2] + 0.25,
         );
         group.position.lerp(perch, 1 - Math.pow(0.025, dt));
@@ -208,6 +231,27 @@ export function PlayerController({ playerRef, action, entered }: Props) {
         );
         velocity.current.z *= -0.25;
       }
+    }
+
+    // Soft auto-rest near lounge pod even while drifting slowly
+    if (action === "drift") {
+      const nearPod = nearestRestSpot(group.position);
+      if (
+        nearPod?.kind === "pod" &&
+        nearPod.dist < 2.4 &&
+        velocity.current.length() < 0.35
+      ) {
+        applyState("rest");
+      }
+    }
+
+    publishAcc.current += dt;
+    if (publishAcc.current > 0.1) {
+      publishAcc.current = 0;
+      roomRef.current?.publish(
+        [group.position.x, group.position.y, group.position.z],
+        avatarStateRef.current,
+      );
     }
 
     // Third-person camera on a sphere behind the avatar, following look angles

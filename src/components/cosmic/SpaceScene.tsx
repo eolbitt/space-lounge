@@ -16,9 +16,15 @@ type Props = {
     visitorId: string;
     screenHint: { x: number; y: number };
   }) => void;
+  onPeerCount?: (count: number) => void;
 };
 
-export function SpaceScene({ entered, action, onHeart }: Props) {
+export function SpaceScene({
+  entered,
+  action,
+  onHeart,
+  onPeerCount,
+}: Props) {
   const playerRef = useRef<THREE.Group>(null);
 
   return (
@@ -50,7 +56,13 @@ export function SpaceScene({ entered, action, onHeart }: Props) {
           entered={entered}
         />
 
-        {entered && <Visitors playerRef={playerRef} onHeart={onHeart} />}
+        {entered && (
+          <Visitors
+            playerRef={playerRef}
+            onHeart={onHeart}
+            onPeerCount={onPeerCount}
+          />
+        )}
 
         <pointLight
           position={[2, -4, -8]}

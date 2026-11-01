@@ -9,6 +9,8 @@ type Props = {
   visible: boolean;
   action: LoungeAction;
   onAction: (action: LoungeAction) => void;
+  /** Other tabs sharing this origin via BroadcastChannel */
+  livePeers?: number;
 };
 
 const ACTIONS: { id: LoungeAction; label: string; icon: string }[] = [
@@ -26,7 +28,7 @@ const ACTIONS: { id: LoungeAction; label: string; icon: string }[] = [
   },
 ];
 
-export function Hud({ visible, action, onAction }: Props) {
+export function Hud({ visible, action, onAction, livePeers = 0 }: Props) {
   const [online, setOnline] = useState(213);
   const [musicOn, setMusicOn] = useState(true);
   const [sfxOn, setSfxOn] = useState(true);
@@ -39,6 +41,8 @@ export function Hud({ visible, action, onAction }: Props) {
     setOnline(mockOnlineCount());
     return () => window.clearInterval(id);
   }, [visible]);
+
+  const together = online + livePeers;
 
   if (!visible) return null;
 
@@ -55,11 +59,16 @@ export function Hud({ visible, action, onAction }: Props) {
               Space Lounge
             </p>
           </div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-[#0a1018]/55 px-3 py-1.5 backdrop-blur-sm">
+          <div className="inline-flex flex-wrap items-center gap-2 rounded-full border border-white/15 bg-[#0a1018]/55 px-3 py-1.5 backdrop-blur-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-[#7dffb0]" />
             <p className="font-sans text-xs text-[#d5dde8] sm:text-sm">
-              지금 <span className="text-[#f4f7fb]">{online}명</span>이 같은 우주에
+              지금 <span className="text-[#f4f7fb]">{together}명</span>이 같은 우주에
               있어요
+              {livePeers > 0 && (
+                <span className="ml-1 text-[#9eb0c4]">
+                  · 이 기기 {livePeers + 1}탭
+                </span>
+              )}
             </p>
           </div>
         </div>

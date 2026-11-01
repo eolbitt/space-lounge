@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { Astronaut } from "./Astronaut";
@@ -15,6 +15,7 @@ import {
   type AvatarState,
 } from "@/lib/constants";
 import { loungeAudio } from "@/lib/audio";
+import { getPresenceRoom, type PeerPose } from "@/lib/realtime";
 
 type Props = {
   playerRef: React.RefObject<THREE.Group | null>;
@@ -22,22 +23,36 @@ type Props = {
     visitorId: string;
     screenHint: { x: number; y: number };
   }) => void;
+  onPeerCount?: (count: number) => void;
 };
 
-type LiveVisitor = {
-  visitor: MockVisitor;
+type LiveBody = {
+  id: string;
   position: [number, number, number];
   state: AvatarState;
+  kind: "peer" | "mock";
 };
 
-/** Anonymous co-presence — same suit, no names; soft heart on contact. */
-export function Visitors({ playerRef, onHeart }: Props) {
-  const visitors = useMemo(() => createMockVisitors(), []);
-  const [live, setLive] = useState<LiveVisitor[]>([]);
+/** Live BroadcastChannel peers + mock visitors as ambient fallback. */
+export function Visitors({ playerRef, onHeart, onPeerCount }: Props) {
+  const mocks = useMemo(() => createMockVisitors(), []);
+  const [peers, setPeers] = useState<Map<string, PeerPose>>(new Map());
+  const [live, setLive] = useState<LiveBody[]>([]);
   const throttle = useRef(0);
   const cooldowns = useRef<Map<string, number>>(new Map());
   const { camera, size } = useThree();
   const tmp = useRef(new THREE.Vector3());
+
+  useEffect(() => {
+    const room = getPresenceRoom();
+    if (!room) return;
+    return room.subscribe({
+      onPeers: (next) => {
+        setPeers(new Map(next));
+        onPeerCount?.(next.size);
+      },
+    });
+  }, [onPeerCount]);
 
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
@@ -46,39 +61,60 @@ export function Visitors({ playerRef, onHeart }: Props) {
     const now = performance.now();
     const player = playerRef.current?.position;
 
-    const next = visitors.map((v) => {
+    const bodies: LiveBody[] = [];
+
+    for (const peer of peers.values()) {
+      bodies.push({
+        id: peer.id,
+        position: peer.position,
+        state: peer.state,
+        kind: "peer",
+      });
+    }
+
+    // Keep a few mock visitors when alone / sparse — ambient co-presence fallback
+    const mockBudget = Math.max(0, 5 - peers.size);
+    mocks.slice(0, mockBudget).forEach((v: MockVisitor) => {
       const pose = visitorPose(v, t);
-      return { visitor: v, ...pose };
+      bodies.push({
+        id: v.id,
+        position: pose.position,
+        state: pose.state,
+        kind: "mock",
+      });
     });
-    setLive(next);
+
+    setLive(bodies);
 
     if (!player || !onHeart) return;
+    const room = getPresenceRoom();
 
-    for (const v of next) {
+    for (const v of bodies) {
       const dx = v.position[0] - player.x;
       const dy = v.position[1] - player.y;
       const dz = v.position[2] - player.z;
       const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
       if (dist > HEART_CONTACT_DISTANCE) continue;
 
-      const last = cooldowns.current.get(v.visitor.id) ?? 0;
+      const last = cooldowns.current.get(v.id) ?? 0;
       if (now - last < HEART_COOLDOWN_MS) continue;
-      cooldowns.current.set(v.visitor.id, now);
+      cooldowns.current.set(v.id, now);
 
       tmp.current.set(v.position[0], v.position[1] + 0.6, v.position[2]);
       tmp.current.project(camera);
       const sx = (tmp.current.x * 0.5 + 0.5) * size.width;
       const sy = (-tmp.current.y * 0.5 + 0.5) * size.height;
       loungeAudio.playSfx("heart");
-      onHeart({ visitorId: v.visitor.id, screenHint: { x: sx, y: sy } });
+      onHeart({ visitorId: v.id, screenHint: { x: sx, y: sy } });
+      if (v.kind === "peer") room?.broadcastHeart(v.id);
     }
   });
 
   return (
     <group>
       {live.map((v) => (
-        <group key={v.visitor.id} position={v.position}>
-          <Astronaut state={v.state} scale={0.92} />
+        <group key={v.id} position={v.position}>
+          <Astronaut state={v.state} scale={v.kind === "peer" ? 1 : 0.92} />
         </group>
       ))}
     </group>

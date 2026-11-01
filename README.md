@@ -7,20 +7,25 @@
 
 - **떠다니기** / **가만히 있기** / **인사하기** / **바라보기**
 - **3D 유영** — 드래그(터치)로 시야, WASD/화살표·Q/E로 이동
-- 스카이돔 + 절차형 별 + 빌보드 성운 (스트레치/타일 깨짐 없음)
-- 넓은 유영 범위 — 지구·달·고리행성·소행성 사이 이동
-- 근접/접촉 시 조용한 **마음(하트) +1** (상대별 쿨다운)
-- 앰비언트 BGM + SFX, HUD 음악/효과음 토글
-- 아바타 상태: Idle · Move · Rest · Wave (동일 우주복, 익명)
+- **멀티탭 실시간** — BroadcastChannel로 같은 브라우저 탭끼리 위치·상태·하트 공유 (폴백 모의 방문객)
+- **라운지 포드** — 따뜻한 창문의 Rest 포인트
+- 스카이돔 + 절차형 별 + 빌보드 성운
+- 근접 시 **마음(하트) +1** (쿨다운)
+- BGM/SFX 토글 · Idle/Move/Rest/Wave · 익명 동일 우주복
 
 ## 에셋
 
 ```
 public/assets/astronaut/   astronaut-idle|move|rest|wave.png
 public/assets/background/  space-stars.png, nebula.png
-public/assets/objects/     earth.png, moon.png, planet.png, asteroid.png
+public/assets/objects/     earth, moon, planet, asteroid, lounge-pod.png
 public/assets/audio/       ambient-space.ogg, sfx-wave.ogg, sfx-heart.ogg
 ```
+
+## 동기화
+
+같은 출처의 여러 탭은 `BroadcastChannel("space-lounge-presence-v1")` 로 익명 포즈를 공유합니다.  
+WebSocket 서버는 MVP에서 생략했고, 탭이 없으면 모의 방문객이 남습니다.
 
 ## 실행
 
@@ -39,7 +44,6 @@ Next.js · TypeScript · Tailwind · three.js / React Three Fiber / drei
 
 ## 미룸
 
-- 실제 멀티플레이어 동기화
-- 라운지 포드·랜턴 디테일
+- 크로스 디바이스 WebSocket/서버 동기화
 - 손 흔들기/착석 프레임 애니메이션 클립
-- 꾸미기 UI (의도적 제외)
+- 포드 내부 진입·꾸미기 UI (의도적 제외)

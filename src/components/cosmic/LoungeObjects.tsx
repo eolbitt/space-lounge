@@ -19,6 +19,9 @@ export const ASTEROID_SPOTS: [number, number, number, number][] = [
   [-10, -2.5, -16, 1.15],
 ];
 
+/** Warm lounge pod — atmosphere / Rest perch (no landing mission). */
+export const POD_POS: [number, number, number, number] = [-6.5, 0.4, 4.2, 3.4];
+
 export const LOOK_AT_EARTH = new THREE.Vector3(2, -6, -14);
 export const EARTH_POS = new THREE.Vector3(2, -9, -16);
 export const MOON_POS = new THREE.Vector3(22, 10, -28);
@@ -51,16 +54,17 @@ function CelestialBillboard({
   );
 }
 
-/** Celestial bodies as billboards in a real 3D volume + rocky asteroid meshes. */
+/** Celestial bodies + lounge pod in a real 3D volume. */
 export function LoungeObjects() {
-  const [earth, moon, planet, asteroid] = useTexture([
+  const [earth, moon, planet, asteroid, pod] = useTexture([
     "/assets/objects/earth.png",
     "/assets/objects/moon.png",
     "/assets/objects/planet.png",
     "/assets/objects/asteroid.png",
+    "/assets/objects/lounge-pod.png",
   ]) as THREE.Texture[];
 
-  for (const t of [earth, moon, planet, asteroid]) {
+  for (const t of [earth, moon, planet, asteroid, pod]) {
     t.colorSpace = THREE.SRGBColorSpace;
     t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
   }
@@ -95,7 +99,6 @@ export function LoungeObjects() {
         ref={planetGroup}
         position={[PLANET_POS.x, PLANET_POS.y, PLANET_POS.z]}
       >
-        {/* Ringed planet as billboard (includes rings in asset) */}
         <Billboard follow>
           <mesh scale={[8.5, 4.4, 1]} renderOrder={2}>
             <planeGeometry args={[1, 1]} />
@@ -110,6 +113,28 @@ export function LoungeObjects() {
         </Billboard>
       </group>
 
+      {/* Lounge pod — warm rest atmosphere */}
+      <group position={[POD_POS[0], POD_POS[1], POD_POS[2]]}>
+        <CelestialBillboard
+          map={pod}
+          position={[0, 0, 0]}
+          size={POD_POS[3]}
+          renderOrder={4}
+        />
+        <pointLight
+          position={[0.4, 0.2, 0.8]}
+          intensity={1.4}
+          distance={8}
+          color="#ffc978"
+        />
+        <pointLight
+          position={[-0.3, 0.1, 0.5]}
+          intensity={0.45}
+          distance={5}
+          color="#ffebc0"
+        />
+      </group>
+
       {asteroids.map(([x, y, z, s], i) => (
         <group key={i} position={[x, y, z]}>
           <CelestialBillboard
@@ -118,8 +143,10 @@ export function LoungeObjects() {
             size={s * 1.15}
             renderOrder={3}
           />
-          {/* Soft 3D rock volume behind the sprite for parallax depth */}
-          <mesh rotation={[0.4 + i * 0.2, 0.6 + i * 0.15, 0.1]} scale={s * 0.35}>
+          <mesh
+            rotation={[0.4 + i * 0.2, 0.6 + i * 0.15, 0.1]}
+            scale={s * 0.35}
+          >
             <icosahedronGeometry args={[1, 0]} />
             <meshStandardMaterial
               color="#3a3a40"
@@ -134,16 +161,42 @@ export function LoungeObjects() {
   );
 }
 
-export function nearestAsteroid(
-  pos: THREE.Vector3,
-): { spot: [number, number, number, number]; dist: number } | null {
-  let best: { spot: [number, number, number, number]; dist: number } | null =
-    null;
+export type RestSpot = {
+  spot: [number, number, number, number];
+  dist: number;
+  kind: "asteroid" | "pod";
+};
+
+/** Prefer lounge pod when nearby; otherwise nearest asteroid. */
+export function nearestRestSpot(pos: THREE.Vector3): RestSpot | null {
+  let best: RestSpot | null = null;
+
+  const podPerch = new THREE.Vector3(
+    POD_POS[0] + 1.1,
+    POD_POS[1] - 0.15,
+    POD_POS[2] + 1.35,
+  );
+  const podDist = pos.distanceTo(podPerch);
+  best = {
+    spot: [podPerch.x, podPerch.y - 0.45, podPerch.z, POD_POS[3]],
+    dist: podDist,
+    kind: "pod",
+  };
+
   for (const spot of ASTEROID_SPOTS) {
     const d = pos.distanceTo(
       new THREE.Vector3(spot[0], spot[1] + 0.55, spot[2]),
     );
-    if (!best || d < best.dist) best = { spot, dist: d };
+    if (!best || d < best.dist) {
+      best = { spot, dist: d, kind: "asteroid" };
+    }
   }
   return best;
+}
+
+/** @deprecated use nearestRestSpot */
+export function nearestAsteroid(pos: THREE.Vector3) {
+  const r = nearestRestSpot(pos);
+  if (!r) return null;
+  return { spot: r.spot, dist: r.dist };
 }
