@@ -142,7 +142,8 @@ function SolarPlanetSprite({
         scaleY={ringed ? 0.52 : 1}
         roll={ringed ? RING_UPRIGHT_ROLL : 0}
         color={planet.color}
-        alphaTest={0.12}
+        // Hard cut — discard soft/dark PNG limb fringe against the sun
+        alphaTest={0.45}
         depthWrite
       />
     </group>
