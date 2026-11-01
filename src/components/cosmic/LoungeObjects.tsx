@@ -389,14 +389,10 @@ export function LoungeObjects() {
             alphaTest={0.45}
             depthWrite
           />
-          {/* Solid rock plug behind the hollow sprite so the sun never shows as a “cut” */}
-          <mesh scale={s * 0.42} renderOrder={2}>
-            <sphereGeometry args={[1, 12, 10]} />
-            <meshBasicMaterial color="#2a2a30" toneMapped={false} />
-          </mesh>
           <mesh
             rotation={[0.4 + i * 0.2, 0.6 + i * 0.15, 0.1]}
-            scale={s * 0.35}
+            scale={s * 0.28}
+            position={[0, -0.05, 0.05]}
           >
             <icosahedronGeometry args={[1, 0]} />
             <meshStandardMaterial
