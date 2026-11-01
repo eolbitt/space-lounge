@@ -16,10 +16,10 @@ export function EntryOverlay({ visible, onEnter }: Props) {
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#05070c] via-[#05070c]/55 to-transparent" />
 
       <div className="relative mx-auto w-full max-w-3xl px-6 pb-16 pt-24 sm:pb-20">
-        <p className="font-display text-[clamp(2.4rem,8vw,4.6rem)] leading-[1.05] tracking-tight text-[#eef3f7]">
+        <p className="font-display text-[clamp(2.4rem,8vw,4.6rem)] leading-[1.08] tracking-tight text-[#eef3f7]">
           혼자지만,
           <br />
-          같은 우주에 있는 사람들
+          <span className="whitespace-nowrap">같은 우주에 있는 사람들</span>
         </p>
         <p className="mt-5 max-w-md font-sans text-base leading-relaxed text-[#a8b8c8] sm:text-lg">
           작은 우주인이 되어 천천히 유영하세요. 말은 없습니다. 같은 밤하늘
