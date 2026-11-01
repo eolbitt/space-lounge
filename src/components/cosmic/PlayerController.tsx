@@ -19,12 +19,18 @@ type Props = {
   playerRef: React.RefObject<THREE.Group | null>;
   action: LoungeAction;
   entered: boolean;
+  onNearPod?: (near: boolean) => void;
 };
 
 const keys = new Set<string>();
 
 /** Pointer-drag look + WASD/QE drift in true 3D (camera-relative). */
-export function PlayerController({ playerRef, action, entered }: Props) {
+export function PlayerController({
+  playerRef,
+  action,
+  entered,
+  onNearPod,
+}: Props) {
   const { camera, gl } = useThree();
   const velocity = useRef(new THREE.Vector3());
   const [avatarState, setAvatarState] = useState<AvatarState>("idle");
@@ -38,6 +44,7 @@ export function PlayerController({ playerRef, action, entered }: Props) {
   const lookEase = useRef(new THREE.Vector3());
   const publishAcc = useRef(0);
   const roomRef = useRef(getPresenceRoom());
+  const nearPodRef = useRef(false);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => keys.add(e.key.toLowerCase());
@@ -234,11 +241,25 @@ export function PlayerController({ playerRef, action, entered }: Props) {
     }
 
     // Soft auto-rest near lounge pod even while drifting slowly
+    const rest = nearestRestSpot(group.position);
+    // Hysteresis so the enter button does not flicker
+    const enterDist = 5.2;
+    const leaveDist = 7.2;
+    let nearPod = nearPodRef.current;
+    if (rest?.kind === "pod") {
+      if (!nearPod && rest.dist < enterDist) nearPod = true;
+      if (nearPod && rest.dist > leaveDist) nearPod = false;
+    } else {
+      nearPod = false;
+    }
+    if (nearPod !== nearPodRef.current) {
+      nearPodRef.current = nearPod;
+      onNearPod?.(nearPod);
+    }
     if (action === "drift") {
-      const nearPod = nearestRestSpot(group.position);
       if (
-        nearPod?.kind === "pod" &&
-        nearPod.dist < 2.4 &&
+        rest?.kind === "pod" &&
+        rest.dist < 2.4 &&
         velocity.current.length() < 0.35
       ) {
         applyState("rest");

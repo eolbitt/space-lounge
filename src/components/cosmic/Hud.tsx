@@ -4,13 +4,16 @@ import { useEffect, useState } from "react";
 import type { LoungeAction } from "@/lib/constants";
 import { mockOnlineCount } from "@/lib/presence";
 import { loungeAudio } from "@/lib/audio";
+import type { SyncTransport } from "@/lib/realtime";
 
 type Props = {
   visible: boolean;
   action: LoungeAction;
   onAction: (action: LoungeAction) => void;
-  /** Other tabs sharing this origin via BroadcastChannel */
   livePeers?: number;
+  nearPod?: boolean;
+  onEnterPod?: () => void;
+  transport?: SyncTransport;
 };
 
 const ACTIONS: { id: LoungeAction; label: string; icon: string }[] = [
@@ -28,7 +31,15 @@ const ACTIONS: { id: LoungeAction; label: string; icon: string }[] = [
   },
 ];
 
-export function Hud({ visible, action, onAction, livePeers = 0 }: Props) {
+export function Hud({
+  visible,
+  action,
+  onAction,
+  livePeers = 0,
+  nearPod = false,
+  onEnterPod,
+  transport = "offline",
+}: Props) {
   const [online, setOnline] = useState(213);
   const [musicOn, setMusicOn] = useState(true);
   const [sfxOn, setSfxOn] = useState(true);
@@ -66,9 +77,17 @@ export function Hud({ visible, action, onAction, livePeers = 0 }: Props) {
               있어요
               {livePeers > 0 && (
                 <span className="ml-1 text-[#9eb0c4]">
-                  · 이 기기 {livePeers + 1}탭
+                  · 함께 {livePeers + 1}
                 </span>
               )}
+              <span className="ml-1 text-[#7a8a9a]">
+                ·{" "}
+                {transport === "websocket"
+                  ? "실시간"
+                  : transport === "broadcast"
+                    ? "같은 기기"
+                    : "오프라인"}
+              </span>
             </p>
           </div>
         </div>
@@ -119,6 +138,15 @@ export function Hud({ visible, action, onAction, livePeers = 0 }: Props) {
       </header>
 
       <div className="flex flex-col items-center gap-3">
+        {nearPod && onEnterPod && (
+          <button
+            type="button"
+            onClick={onEnterPod}
+            className="pointer-events-auto animate-fade-in rounded-full border border-[#e8d4b8]/40 bg-[#2a2018]/65 px-5 py-2.5 font-sans text-sm tracking-wide text-[#f3e6d4] backdrop-blur-sm transition hover:border-[#f3e6d4]/6"
+          >
+            포드 들어가기
+          </button>
+        )}
         <nav className="pointer-events-auto flex flex-wrap items-end justify-center gap-2 sm:gap-3">
           {ACTIONS.map((item) => {
             const active = action === item.id;

@@ -9,6 +9,8 @@ export type PeerPose = {
   updatedAt: number;
 };
 
+export type SyncTransport = "websocket" | "broadcast" | "offline";
+
 type WireMsg =
   | { type: "hello"; peer: PeerPose }
   | { type: "state"; peer: PeerPose }
@@ -34,50 +36,71 @@ function getOrCreateSelfId() {
   return id;
 }
 
+function resolveWsUrl() {
+  if (typeof window === "undefined") return null;
+  const fromEnv = process.env.NEXT_PUBLIC_WS_URL;
+  if (fromEnv) return fromEnv;
+  const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const host = window.location.hostname || "127.0.0.1";
+  // Presence relay listens on 43128 by default
+  return `${proto}//${host}:43128`;
+}
+
 type Listener = {
   onPeers?: (peers: Map<string, PeerPose>) => void;
   onRemoteHeart?: (payload: { fromId: string; toId: string }) => void;
+  onTransport?: (t: SyncTransport) => void;
 };
 
 /**
- * Same-origin multi-tab presence via BroadcastChannel.
- * No names/profiles — anonymous astronaut poses only.
+ * Cross-device presence: WebSocket relay + BroadcastChannel fallback.
+ * Anonymous astronaut poses only — no names/profiles.
  */
 export class PresenceRoom {
   readonly selfId: string;
   private channel: BroadcastChannel | null = null;
+  private socket: WebSocket | null = null;
   private peers = new Map<string, PeerPose>();
   private listeners = new Set<Listener>();
   private pruneTimer: number | null = null;
-  private supported: boolean;
+  private reconnectTimer: number | null = null;
   private lastSelf: PeerPose | null = null;
+  private transport: SyncTransport = "offline";
+  private wsUrl: string | null;
 
   constructor() {
     this.selfId = getOrCreateSelfId();
-    this.supported =
-      typeof window !== "undefined" && typeof BroadcastChannel !== "undefined";
-    if (!this.supported) return;
+    this.wsUrl = resolveWsUrl();
 
-    this.channel = new BroadcastChannel(ROOM_CHANNEL);
-    this.channel.onmessage = (ev: MessageEvent<WireMsg>) => {
-      this.handle(ev.data);
-    };
+    if (typeof window !== "undefined" && typeof BroadcastChannel !== "undefined") {
+      this.channel = new BroadcastChannel(ROOM_CHANNEL);
+      this.channel.onmessage = (ev: MessageEvent<WireMsg>) => {
+        this.handle(ev.data);
+      };
+      if (this.transport === "offline") this.setTransport("broadcast");
+    }
 
     this.pruneTimer = window.setInterval(() => this.prune(), 4000);
+    this.connectWs();
     this.post({ type: "who", id: this.selfId });
   }
 
   get isLive() {
-    return this.supported;
+    return this.transport !== "offline";
   }
 
   get peerCount() {
     return this.peers.size;
   }
 
+  get currentTransport() {
+    return this.transport;
+  }
+
   subscribe(listener: Listener) {
     this.listeners.add(listener);
     listener.onPeers?.(new Map(this.peers));
+    listener.onTransport?.(this.transport);
     return () => {
       this.listeners.delete(listener);
     };
@@ -124,16 +147,84 @@ export class PresenceRoom {
       window.clearInterval(this.pruneTimer);
       this.pruneTimer = null;
     }
+    if (this.reconnectTimer) {
+      window.clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    try {
+      this.socket?.close();
+    } catch {
+      /* ignore */
+    }
+    this.socket = null;
     this.channel?.close();
     this.channel = null;
     singleton = null;
   }
 
+  private setTransport(t: SyncTransport) {
+    if (this.transport === t) return;
+    this.transport = t;
+    for (const l of this.listeners) l.onTransport?.(t);
+  }
+
+  private connectWs() {
+    if (!this.wsUrl || typeof window === "undefined") return;
+    try {
+      const ws = new WebSocket(this.wsUrl);
+      this.socket = ws;
+      ws.onopen = () => {
+        this.setTransport("websocket");
+        this.post({ type: "who", id: this.selfId });
+        if (this.lastSelf) this.post({ type: "hello", peer: this.lastSelf });
+      };
+      ws.onmessage = (ev) => {
+        try {
+          const msg = JSON.parse(String(ev.data)) as WireMsg;
+          this.handle(msg);
+        } catch {
+          /* ignore bad payloads */
+        }
+      };
+      ws.onclose = () => {
+        this.socket = null;
+        this.setTransport(this.channel ? "broadcast" : "offline");
+        this.scheduleReconnect();
+      };
+      ws.onerror = () => {
+        try {
+          ws.close();
+        } catch {
+          /* ignore */
+        }
+      };
+    } catch {
+      this.setTransport(this.channel ? "broadcast" : "offline");
+      this.scheduleReconnect();
+    }
+  }
+
+  private scheduleReconnect() {
+    if (this.reconnectTimer) return;
+    this.reconnectTimer = window.setTimeout(() => {
+      this.reconnectTimer = null;
+      this.connectWs();
+    }, 2500);
+  }
+
   private post(msg: WireMsg) {
+    const raw = JSON.stringify(msg);
     try {
       this.channel?.postMessage(msg);
     } catch {
       /* ignore */
+    }
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      try {
+        this.socket.send(raw);
+      } catch {
+        /* ignore */
+      }
     }
   }
 

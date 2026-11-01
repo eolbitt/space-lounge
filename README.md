@@ -24,8 +24,16 @@ public/assets/audio/       ambient-space.ogg, sfx-wave.ogg, sfx-heart.ogg
 
 ## 동기화
 
-같은 출처의 여러 탭은 `BroadcastChannel("space-lounge-presence-v1")` 로 익명 포즈를 공유합니다.  
-WebSocket 서버는 MVP에서 생략했고, 탭이 없으면 모의 방문객이 남습니다.
+- **WebSocket** 릴레이: `npm run dev:ws` → `ws://0.0.0.0:43128` (크로스 디바이스)
+- 실패 시 **BroadcastChannel** 폴백 (같은 브라우저 탭)
+- 둘 다 없으면 모의 방문객
+
+```bash
+npm run dev:ws   # 터미널 1
+npm run dev      # 터미널 2 — http://0.0.0.0:43127
+```
+
+터널 사용 시 `NEXT_PUBLIC_WS_URL=wss://…` 를 Next에 넘기세요.
 
 ## 실행
 
@@ -42,8 +50,12 @@ Next.js · TypeScript · Tailwind · three.js / React Three Fiber / drei
 스카이돔·절차형 별점·빌보드 천체/아바타 · 포인터 시야 + WASD 드리프트  
 실시간 백엔드 없이 모의 프레즌스.
 
+## 포드
+
+가까이 가면 **포드 들어가기** → 조용한 내부 → **우주로 나가기**.
+
 ## 미룸
 
-- 크로스 디바이스 WebSocket/서버 동기화
-- 손 흔들기/착석 프레임 애니메이션 클립
-- 포드 내부 진입·꾸미기 UI (의도적 제외)
+- 인증·방 분리·대규모 샤딩
+- 손 흔들기/착석 프레임 클립
+- 꾸미기 UI (의도적 제외)

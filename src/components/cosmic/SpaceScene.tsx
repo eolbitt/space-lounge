@@ -17,6 +17,7 @@ type Props = {
     screenHint: { x: number; y: number };
   }) => void;
   onPeerCount?: (count: number) => void;
+  onNearPod?: (near: boolean) => void;
 };
 
 export function SpaceScene({
@@ -24,6 +25,7 @@ export function SpaceScene({
   action,
   onHeart,
   onPeerCount,
+  onNearPod,
 }: Props) {
   const playerRef = useRef<THREE.Group>(null);
 
@@ -54,6 +56,7 @@ export function SpaceScene({
           playerRef={playerRef}
           action={action}
           entered={entered}
+          onNearPod={onNearPod}
         />
 
         {entered && (
