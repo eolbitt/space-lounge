@@ -1,3 +1,5 @@
+# NOTE: Live deploy used Docker image because this Cursor origin repo is not on GitHub/GitLab.
+# Connect a GitHub repo to Render, then Blueprint-apply this file for git-based deploys.
 # Space Lounge — Render Blueprint (free tier friendly)
 # One web service: Next.js + same-origin presence WebSocket at /ws
 #
