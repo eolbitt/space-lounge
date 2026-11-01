@@ -5,7 +5,6 @@ import { useFrame } from "@react-three/fiber";
 import { Billboard, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import { BlackHoleBody, SunBody } from "./CelestialBodies";
-import { EarthAurora } from "./Aurora";
 
 /**
  * Asteroid Rest seats — scattered across the lounge (avoid spawn clustering).
@@ -66,105 +65,80 @@ export const ALIEN_ICE_POS = new THREE.Vector3(18, 10, -48);
 export const ALIEN_GAS_POS = new THREE.Vector3(-22, 6, -52);
 export const ALIEN_RED_POS = new THREE.Vector3(30, -2, -40);
 /**
- * Distant sky dressing — fills empty deep-space vistas.
- * Avoid the sun cone (+Y/+Z opposite Earth) so planets never stick to the sun limb.
- * Top/bottom far aliens are tiny parallax markers.
+ * Distant sky dressing — scatter duplicates toward the sun hemisphere
+ * and above/below the Earth↔Sun corridor (see planet-scatter-ref).
  */
 const DISTANT_BODIES: {
   tex: "ice" | "red" | "gas" | "dwarf" | "star" | "nebula" | "moon" | "planet";
   pos: [number, number, number];
   size: number;
 }[] = [
-  // ——— forward empty vista (−Z, Earth side) ———
-  { tex: "ice", pos: [18, 14, -62], size: 12 },
-  { tex: "gas", pos: [-28, 8, -70], size: 15 },
-  { tex: "red", pos: [42, -6, -58], size: 8 },
-  { tex: "planet", pos: [-8, 22, -75], size: 9 },
-  { tex: "moon", pos: [32, 18, -48], size: 4.5 },
-  { tex: "dwarf", pos: [-38, -4, -52], size: 5.5 },
-  { tex: "ice", pos: [8, -16, -68], size: 7 },
-  { tex: "red", pos: [-48, 16, -40], size: 6.8 },
-  { tex: "gas", pos: [55, 12, -45], size: 11 },
-  { tex: "dwarf", pos: [-12, 28, -55], size: 4.8 },
-  { tex: "moon", pos: [5, 6, -80], size: 3.8 },
-  { tex: "planet", pos: [-55, -10, -48], size: 7.2 },
-  // ——— left / right flanks (not toward sun) ———
-  { tex: "ice", pos: [-72, 12, -18], size: 10 },
-  { tex: "red", pos: [68, 6, -22], size: 8.5 },
-  { tex: "gas", pos: [-60, -14, -8], size: 12 },
-  { tex: "planet", pos: [65, -12, -14], size: 7 },
-  { tex: "moon", pos: [-50, 22, -12], size: 4.2 },
-  { tex: "dwarf", pos: [58, 20, -18], size: 5 },
-  { tex: "ice", pos: [-45, -18, -28], size: 6.5 },
-  { tex: "red", pos: [48, 24, -10], size: 6 },
-  // ——— behind (+Z) sky ONLY far off the sun axis (no ice/moon/planet on sun limb) ———
-  { tex: "nebula", pos: [70, -25, 90], size: 34 },
-  { tex: "nebula", pos: [-75, -30, 85], size: 30 },
-  { tex: "star", pos: [80, 5, 70], size: 3.2 },
-  { tex: "star", pos: [-85, -8, 65], size: 2.8 },
-  { tex: "dwarf", pos: [90, -40, 55], size: 3.5 },
-  { tex: "dwarf", pos: [-88, 35, 60], size: 3.2 },
-  // ——— bright stars ———
-  { tex: "star", pos: [22, 20, -55], size: 5.5 },
-  { tex: "star", pos: [-30, 14, -60], size: 4.8 },
-  { tex: "star", pos: [8, -10, -72], size: 6.2 },
-  { tex: "star", pos: [-55, 8, -30], size: 4.2 },
-  { tex: "star", pos: [50, 16, -35], size: 5.0 },
-  { tex: "star", pos: [-18, 32, -40], size: 3.8 },
-  { tex: "star", pos: [35, -14, -50], size: 4.5 },
-  { tex: "star", pos: [60, 5, -25], size: 3.6 },
-  { tex: "star", pos: [-65, -5, -20], size: 4.4 },
-  { tex: "star", pos: [15, 40, -45], size: 3.5 },
-  { tex: "star", pos: [-40, -20, -45], size: 3.9 },
-  // ——— nebula patches (Earth hemisphere) ———
-  { tex: "nebula", pos: [20, 16, -65], size: 36 },
-  { tex: "nebula", pos: [-35, 12, -58], size: 40 },
-  { tex: "nebula", pos: [5, 28, -48], size: 32 },
-  { tex: "nebula", pos: [48, 8, -30], size: 28 },
-  { tex: "nebula", pos: [-50, 6, -25], size: 30 },
-  // ——— mid-far layer ———
-  { tex: "dwarf", pos: [14, 9, -26], size: 3.2 },
-  { tex: "dwarf", pos: [-11, 11, -24], size: 2.8 },
-  { tex: "moon", pos: [9, 16, -32], size: 3.0 },
-  { tex: "red", pos: [-16, 7, -34], size: 4.5 },
-  { tex: "ice", pos: [21, 4, -36], size: 5.0 },
-  { tex: "dwarf", pos: [3, 14, -28], size: 2.4 },
-  { tex: "moon", pos: [-22, 13, -30], size: 2.6 },
-  { tex: "planet", pos: [28, -3, -38], size: 5.5 },
-  { tex: "gas", pos: [-6, 19, -42], size: 6.5 },
-  { tex: "star", pos: [16, 12, -30], size: 3.2 },
-  { tex: "star", pos: [-14, 15, -33], size: 2.8 },
-  { tex: "star", pos: [6, 8, -40], size: 3.6 },
-  { tex: "star", pos: [-25, 5, -36], size: 2.6 },
-  { tex: "dwarf", pos: [17, -5, -22], size: 2.2 },
-  { tex: "moon", pos: [-8, -6, -30], size: 2.5 },
-  // ——— TOP empty void — far alien worlds (small parallax markers) ———
-  { tex: "ice", pos: [-35, 95, -40], size: 4.2 },
-  { tex: "red", pos: [48, 110, -20], size: 3.4 },
-  { tex: "gas", pos: [12, 88, 30], size: 5.0 },
-  { tex: "planet", pos: [-60, 102, 15], size: 3.8 },
-  { tex: "dwarf", pos: [70, 78, -55], size: 2.8 },
-  { tex: "moon", pos: [-15, 120, -5], size: 2.6 },
-  { tex: "ice", pos: [30, 85, -70], size: 3.6 },
-  { tex: "red", pos: [-80, 92, -35], size: 3.2 },
-  { tex: "planet", pos: [5, 105, 45], size: 3.5 },
-  { tex: "gas", pos: [55, 130, -40], size: 4.6 },
-  { tex: "dwarf", pos: [-45, 140, -25], size: 2.4 },
-  { tex: "moon", pos: [90, 100, -50], size: 2.2 },
-  // ——— BOTTOM empty void — far alien worlds ———
-  { tex: "red", pos: [40, -70, -35], size: 4.0 },
-  { tex: "ice", pos: [-50, -85, -15], size: 3.6 },
-  { tex: "planet", pos: [15, -95, 25], size: 4.4 },
-  { tex: "gas", pos: [-25, -78, -50], size: 4.8 },
-  { tex: "dwarf", pos: [65, -60, -20], size: 2.6 },
-  { tex: "moon", pos: [-70, -88, 10], size: 3.0 },
-  { tex: "ice", pos: [8, -110, -30], size: 3.8 },
-  { tex: "red", pos: [-40, -65, 40], size: 3.4 },
-  { tex: "planet", pos: [75, -90, -45], size: 4.0 },
-  { tex: "gas", pos: [-10, -100, -60], size: 4.2 },
-  { tex: "dwarf", pos: [50, -120, 5], size: 2.5 },
-  { tex: "moon", pos: [-90, -75, -40], size: 2.8 },
+  // ——— Earth-forward (−Z) — thinner, less duplicate clutter ———
+  { tex: "ice", pos: [28, 18, -68], size: 9 },
+  { tex: "gas", pos: [-36, 4, -72], size: 12 },
+  { tex: "red", pos: [48, -12, -55], size: 7 },
+  { tex: "moon", pos: [-20, 20, -58], size: 3.8 },
+  { tex: "dwarf", pos: [12, -18, -64], size: 4.5 },
+  // ——— flanks ———
+  { tex: "ice", pos: [-78, 8, -8], size: 9 },
+  { tex: "red", pos: [74, 14, -18], size: 7.5 },
+  { tex: "gas", pos: [-68, -18, 12], size: 11 },
+  { tex: "moon", pos: [62, -16, 6], size: 4 },
+  { tex: "dwarf", pos: [-55, 26, 8], size: 4.2 },
+  // ——— SUN-SIDE scatter (+Y / +Z toward sun ≈ -26,117,208) ———
+  { tex: "planet", pos: [22, 42, 55], size: 8 },
+  { tex: "planet", pos: [-38, 58, 70], size: 7 },
+  { tex: "planet", pos: [8, 78, 95], size: 6.5 },
+  { tex: "planet", pos: [-18, 36, 48], size: 5.8 },
+  { tex: "gas", pos: [40, 55, 80], size: 10 },
+  { tex: "gas", pos: [-50, 70, 100], size: 9 },
+  { tex: "ice", pos: [55, 48, 62], size: 8 },
+  { tex: "ice", pos: [-12, 88, 110], size: 7 },
+  { tex: "red", pos: [30, 65, 88], size: 6 },
+  { tex: "red", pos: [-45, 40, 58], size: 5.5 },
+  { tex: "moon", pos: [15, 50, 72], size: 3.6 },
+  { tex: "moon", pos: [-28, 72, 90], size: 3.2 },
+  { tex: "dwarf", pos: [48, 32, 44], size: 4 },
+  { tex: "dwarf", pos: [-8, 95, 120], size: 3.5 },
+  // ——— Earth↔Sun corridor ABOVE ———
+  { tex: "planet", pos: [-6, 48, 18], size: 6.2 },
+  { tex: "gas", pos: [18, 38, 8], size: 7.5 },
+  { tex: "ice", pos: [-24, 55, 28], size: 6 },
+  { tex: "moon", pos: [10, 44, -4], size: 3.4 },
+  { tex: "red", pos: [-14, 62, 40], size: 5 },
+  { tex: "dwarf", pos: [26, 50, 22], size: 3 },
+  // ——— Earth↔Sun corridor BELOW ———
+  { tex: "planet", pos: [12, -38, 20], size: 6 },
+  { tex: "gas", pos: [-22, -45, 32], size: 8 },
+  { tex: "ice", pos: [30, -32, 8], size: 5.5 },
+  { tex: "moon", pos: [-8, -50, 42], size: 3.5 },
+  { tex: "red", pos: [5, -28, 50], size: 5.2 },
+  { tex: "dwarf", pos: [-32, -36, 14], size: 3.2 },
+  // ——— nebulae / stars (atmosphere, not planet dupes) ———
+  { tex: "nebula", pos: [40, 30, 75], size: 38 },
+  { tex: "nebula", pos: [-55, 50, 90], size: 42 },
+  { tex: "nebula", pos: [15, -40, 60], size: 34 },
+  { tex: "nebula", pos: [-30, 20, -55], size: 36 },
+  { tex: "nebula", pos: [60, -20, 40], size: 30 },
+  { tex: "star", pos: [20, 60, 70], size: 4.5 },
+  { tex: "star", pos: [-30, 80, 100], size: 4.0 },
+  { tex: "star", pos: [45, 25, 50], size: 3.6 },
+  { tex: "star", pos: [-15, -35, 45], size: 3.8 },
+  { tex: "star", pos: [8, 40, -50], size: 5.0 },
+  { tex: "star", pos: [-40, 10, -40], size: 4.2 },
+  { tex: "star", pos: [55, 70, 85], size: 3.4 },
+  { tex: "star", pos: [-60, -15, 55], size: 3.2 },
+  // ——— far top / bottom parallax (sparse) ———
+  { tex: "ice", pos: [-40, 110, 40], size: 3.8 },
+  { tex: "red", pos: [50, 100, 60], size: 3.2 },
+  { tex: "planet", pos: [10, 125, 80], size: 3.5 },
+  { tex: "gas", pos: [-25, -95, 35], size: 4.2 },
+  { tex: "moon", pos: [35, -85, 50], size: 2.6 },
+  { tex: "dwarf", pos: [-55, -70, 20], size: 2.4 },
 ];
+
+/** Counter-roll so ringed `planet.png` (baked ~35° tilt) reads upright. */
+const RING_UPRIGHT_ROLL = 0.62;
 
 function CelestialBillboard({
   map,
@@ -176,6 +150,9 @@ function CelestialBillboard({
   /** Discard soft alpha so hollow sprites don't punch black holes into the sun */
   alphaTest = 0.15,
   depthWrite = true,
+  /** Screen-space roll (rad) — used to upright tilted ring textures */
+  roll = 0,
+  scaleY = 1,
 }: {
   map: THREE.Texture;
   position: [number, number, number];
@@ -185,10 +162,16 @@ function CelestialBillboard({
   additive?: boolean;
   alphaTest?: number;
   depthWrite?: boolean;
+  roll?: number;
+  scaleY?: number;
 }) {
   return (
     <Billboard follow position={position}>
-      <mesh renderOrder={renderOrder} scale={[size, size, 1]}>
+      <mesh
+        renderOrder={renderOrder}
+        scale={[size, size * scaleY, 1]}
+        rotation={[0, 0, roll]}
+      >
         <planeGeometry args={[1, 1]} />
         <meshBasicMaterial
           map={map}
@@ -253,9 +236,7 @@ export function LoungeObjects() {
     if (moonGroup.current) {
       moonGroup.current.position.y = MOON_POS.y + Math.sin(t * 0.18) * 0.2;
     }
-    if (planetGroup.current) {
-      planetGroup.current.rotation.z = Math.sin(t * 0.05) * 0.05;
-    }
+    // Keep ringed planets upright — no tilt wobble on planetGroup
     if (distantGroup.current) {
       distantGroup.current.rotation.y = Math.sin(t * 0.015) * 0.02;
     }
@@ -289,9 +270,6 @@ export function LoungeObjects() {
         position={[EARTH_POS.x, EARTH_POS.y, EARTH_POS.z]}
         size={18}
       />
-      <EarthAurora
-        position={[EARTH_POS.x, EARTH_POS.y, EARTH_POS.z]}
-      />
 
       <SunBody />
       <BlackHoleBody />
@@ -300,23 +278,16 @@ export function LoungeObjects() {
         <CelestialBillboard map={moon} position={[0, 0, 0]} size={4.8} />
       </group>
 
-      <group
-        ref={planetGroup}
-        position={[PLANET_POS.x, PLANET_POS.y, PLANET_POS.z]}
-      >
-        <Billboard follow>
-          <mesh scale={[8.5, 4.4, 1]} renderOrder={2}>
-            <planeGeometry args={[1, 1]} />
-            <meshBasicMaterial
-              map={planet}
-              transparent
-              alphaTest={0.12}
-              depthWrite
-              toneMapped={false}
-              side={THREE.DoubleSide}
-            />
-          </mesh>
-        </Billboard>
+      <group ref={planetGroup} position={[PLANET_POS.x, PLANET_POS.y, PLANET_POS.z]}>
+        <CelestialBillboard
+          map={planet}
+          position={[0, 0, 0]}
+          size={8.5}
+          scaleY={0.52}
+          roll={RING_UPRIGHT_ROLL}
+          alphaTest={0.12}
+          depthWrite
+        />
       </group>
 
       {/* Flaggable mid-far aliens */}
@@ -350,6 +321,8 @@ export function LoungeObjects() {
             map={texFor(b.tex)}
             position={b.pos}
             size={b.size}
+            roll={b.tex === "planet" ? RING_UPRIGHT_ROLL : 0}
+            scaleY={b.tex === "planet" ? 0.52 : 1}
             renderOrder={b.tex === "nebula" ? 0 : b.tex === "star" ? 2 : 1}
             opacity={
               b.tex === "nebula" ? 0.5 : b.tex === "star" ? 0.95 : 0.96

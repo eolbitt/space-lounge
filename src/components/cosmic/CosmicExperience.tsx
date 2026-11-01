@@ -65,6 +65,7 @@ export function CosmicExperience() {
   }, []);
 
   const exitPod = useCallback(() => {
+    getPresenceRoom()?.clearLounge();
     setInsidePod(false);
     setAction("drift");
   }, []);
@@ -126,10 +127,6 @@ export function CosmicExperience() {
         planetFlag={planetFlag}
         onSetFlag={onSetFlag}
       />
-      <TouchControls
-        visible={entered && !insidePod}
-        onMoveIntent={onTouchMoveIntent}
-      />
       <HeartOverlay
         visible={entered && !insidePod}
         bursts={bursts}
@@ -137,6 +134,11 @@ export function CosmicExperience() {
       />
 
       <PodInterior visible={insidePod} onExit={exitPod} />
+      <TouchControls
+        visible={entered}
+        walkOnly={insidePod}
+        onMoveIntent={insidePod ? undefined : onTouchMoveIntent}
+      />
     </main>
   );
 }

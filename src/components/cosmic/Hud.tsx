@@ -6,8 +6,9 @@ import { mockOnlineCount } from "@/lib/presence";
 import { loungeAudio } from "@/lib/audio";
 import type { SyncTransport } from "@/lib/realtime";
 import {
+  FLAG_LOCK_MS,
   FLAG_MAX_CHARS,
-  FLAG_TTL_MS,
+  isFlagLocked,
   isFlagVisible,
   type PlanetFlag,
   type PlanetSite,
@@ -53,6 +54,7 @@ export function Hud({
   const [sfxOn, setSfxOn] = useState(true);
   const [flagDraft, setFlagDraft] = useState("");
   const [flagNow, setFlagNow] = useState(() => Date.now());
+  const [flagClosed, setFlagClosed] = useState(false);
 
   useEffect(() => {
     if (!visible) return;
@@ -66,8 +68,10 @@ export function Hud({
   useEffect(() => {
     if (!nearPlanet) {
       setFlagDraft("");
+      setFlagClosed(false);
       return;
     }
+    setFlagClosed(false);
     setFlagDraft(planetFlag?.text ?? "");
   }, [nearPlanet?.id, planetFlag?.text, nearPlanet]);
 
@@ -78,11 +82,11 @@ export function Hud({
   }, [nearPlanet]);
 
   const together = online + livePeers;
-  const flagShown = isFlagVisible(planetFlag ?? undefined, flagNow);
-  const softLeft =
-    planetFlag && !planetFlag.stable && flagShown
-      ? Math.max(0, Math.ceil((planetFlag.expiresAt - flagNow) / 1000))
-      : null;
+  const flagShown = isFlagVisible(planetFlag ?? undefined);
+  const locked = isFlagLocked(planetFlag ?? undefined, flagNow);
+  const lockLeft = locked
+    ? Math.max(0, Math.ceil((planetFlag!.expiresAt - flagNow) / 1000))
+    : null;
 
   if (!visible) return null;
 
@@ -167,16 +171,33 @@ export function Hud({
       </header>
 
       <div className="flex flex-col items-center gap-3">
-        {nearPlanet && onSetFlag && (
+        {nearPlanet && onSetFlag && !flagClosed && (
+          <>
+            {/* Backdrop — tap/click outside closes the editor */}
+            <button
+              type="button"
+              aria-label="깃발 창 닫기"
+              className="pointer-events-auto absolute inset-0 z-40 cursor-default bg-transparent"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setFlagClosed(true);
+              }}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+              }}
+            />
           <form
             className="pointer-events-auto relative z-50 flex w-[min(92vw,22rem)] flex-col gap-2 rounded-xl border border-white/20 bg-[#0a121c]/88 px-3 py-3 shadow-[0_8px_28px_rgba(0,0,0,0.45)] backdrop-blur-md animate-fade-in"
             onSubmit={(e) => {
               e.preventDefault();
               e.stopPropagation();
+              if (locked) return;
               const t = flagDraft.trim();
               if (!t) return;
               onSetFlag(nearPlanet.id, t);
             }}
+            onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
           >
             <div className="flex items-baseline justify-between gap-2">
@@ -184,11 +205,11 @@ export function Hud({
                 {nearPlanet.label} 깃발
               </p>
               <p className="font-sans text-[10px] text-[#8a9aaa]">
-                {flagShown && planetFlag?.stable
-                  ? "유지 중 · 덮어쓰기 가능"
-                  : softLeft != null
-                    ? `${softLeft}초 후 유지`
-                    : `작성 후 ${FLAG_TTL_MS / 1000}초 · 공유`}
+                {locked && lockLeft != null
+                  ? `${lockLeft}초 잠금`
+                  : flagShown
+                    ? "덮어쓰기 가능"
+                    : `꽂은 뒤 ${FLAG_LOCK_MS / 1000}초 잠금`}
               </p>
             </div>
             <div className="flex gap-2">
@@ -196,16 +217,18 @@ export function Hud({
                 value={flagDraft}
                 maxLength={FLAG_MAX_CHARS}
                 placeholder="최대 10자"
+                disabled={locked}
                 aria-label={`${nearPlanet.label} 깃발 문구`}
                 onChange={(e) => {
                   const chars = Array.from(e.target.value);
                   setFlagDraft(chars.slice(0, FLAG_MAX_CHARS).join(""));
                 }}
-                className="min-w-0 flex-1 rounded-lg border border-white/18 bg-[#060a10]/8 px-3 py-2 font-sans text-sm text-[#f2f5f8] outline-none placeholder:text-[#6a7a8a] focus:border-[#9eb8c8]/55"
+                className="min-w-0 flex-1 rounded-lg border border-white/18 bg-[#060a10]/8 px-3 py-2 font-sans text-sm text-[#f2f5f8] outline-none placeholder:text-[#6a7a8a] focus:border-[#9eb8c8]/55 disabled:opacity-55"
               />
               <button
                 type="submit"
-                className="shrink-0 rounded-lg border border-[#c8d8e8]/35 bg-[#1a2838]/9 px-3 py-2 font-sans text-sm text-[#eef3f8] transition hover:border-[#e8eef4]/55"
+                disabled={locked}
+                className="shrink-0 rounded-lg border border-[#c8d8e8]/35 bg-[#1a2838]/9 px-3 py-2 font-sans text-sm text-[#eef3f8] transition hover:border-[#e8eef4]/55 disabled:cursor-not-allowed disabled:opacity-45"
               >
                 꽂기
               </button>
@@ -213,13 +236,15 @@ export function Hud({
             {flagShown && planetFlag?.text ? (
               <p className="font-sans text-[11px] text-[#9eb0c4]">
                 지금: <span className="text-[#f2f5f8]">{planetFlag.text}</span>
+                {locked ? " · 잠금 중" : ""}
               </p>
             ) : (
               <p className="font-sans text-[11px] text-[#7a8a9a]">
-                비어 있어요 · 누구나 덮어쓸 수 있어요
+                비어 있어요 · 1분간 잠긴 뒤 다른 사람이 덮어쓸 수 있어요
               </p>
             )}
           </form>
+          </>
         )}
         {nearPod && onEnterPod && (
           <button
@@ -291,7 +316,7 @@ export function Hud({
               오늘의 우주
             </p>
             <p className="font-sans text-xs text-[#d5dde8]">
-              지구 위로 오로라가 지나가요
+              행성 깃발을 꽂아 같은 우주에 흔적을 남겨요
             </p>
           </div>
         </div>

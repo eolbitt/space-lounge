@@ -12,13 +12,13 @@ export const HEART_COOLDOWN_MS = 14000;
 export const DRIFT_SPEED = 3.4;
 export const IDLE_DRIFT = 0.55;
 
-/** Soft world bounds — wide lounge for scattered Rest + mid-far flag planets */
+/** Soft world bounds — Rest scatter + sun-side approach for the sun flag */
 export const WORLD_BOUNDS = {
   x: 42,
-  yMin: -10,
-  yMax: 20,
+  yMin: -14,
+  yMax: 24,
   zMin: -56,
-  zMax: 28,
+  zMax: 38,
 } as const;
 
 export type AvatarState = "idle" | "move" | "rest" | "wave";

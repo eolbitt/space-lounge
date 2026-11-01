@@ -10,104 +10,119 @@ const EARTH_ANCHOR = new THREE.Vector3(2, -9, -16);
 
 /** Earth billboard diameter used as scale reference. */
 export const EARTH_SIZE = 18;
-/** Sun diameter ≈ 10× Earth. */
-export const SUN_DIAMETER = EARTH_SIZE * 10;
+/** Sun diameter ≈ 14× Earth — dominant far landmark. */
+export const SUN_DIAMETER = EARTH_SIZE * 14;
 /**
  * Deep-space side opposite Earth.
- * Distance must exceed sun radius (90) so the lounge is not inside the sphere.
+ * Distance must exceed sun radius (~126) so the lounge is not inside the sphere.
+ * Keep in sync with planetFlags SUN_FLAG_POS.
  */
 export const SUN_POS = EARTH_ANCHOR.clone()
   .multiplyScalar(-1)
   .normalize()
-  .multiplyScalar(240);
+  .multiplyScalar(220);
 
 export const BLACKHOLE_POS = new THREE.Vector3(-32, -8, -42);
 
 /**
- * Complete opaque sphere sun — never a disk billboard.
- * Texture is a full-UV opaque bake (no alpha holes / vertical cut).
+ * View-aligned matcap sampling — flame disk fills the silhouette evenly
+ * (no lat-long wrap seam, no flat center “correction band”).
  */
+function makeSunMatcapMaterial(map: THREE.Texture) {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      map: { value: map },
+    },
+    vertexShader: /* glsl */ `
+      varying vec3 vViewNormal;
+      void main() {
+        vViewNormal = normalize(normalMatrix * normal);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform sampler2D map;
+      varying vec3 vViewNormal;
+      void main() {
+        vec3 n = normalize(vViewNormal);
+        vec2 uv = n.xy * 0.5 + 0.5;
+        // Micro-blur kills residual bake seams without washing the flame
+        vec3 tex = (
+          texture2D(map, uv).rgb +
+          texture2D(map, uv + vec2(0.0018, 0.0)).rgb +
+          texture2D(map, uv + vec2(0.0, 0.0018)).rgb +
+          texture2D(map, uv - vec2(0.0012, 0.0012)).rgb
+        ) * 0.25;
+        float facing = clamp(n.z, 0.0, 1.0);
+        float limb = mix(0.86, 1.0, pow(facing, 0.4));
+        gl_FragColor = vec4(tex * limb, 1.0);
+      }
+    `,
+    toneMapped: false,
+    fog: false,
+    depthWrite: true,
+    depthTest: true,
+    side: THREE.FrontSide,
+  });
+}
+
+/** Opaque sphere sun with continuous flame — no nested band shells. */
 export function SunBody() {
   const group = useRef<THREE.Group>(null);
   const map = useTexture("/assets/objects/sun.png");
   map.colorSpace = THREE.SRGBColorSpace;
-  map.wrapS = THREE.RepeatWrapping;
+  map.wrapS = THREE.ClampToEdgeWrapping;
   map.wrapT = THREE.ClampToEdgeWrapping;
   map.generateMipmaps = true;
   map.minFilter = THREE.LinearMipmapLinearFilter;
   map.magFilter = THREE.LinearFilter;
 
   const radius = SUN_DIAMETER * 0.5;
+  const material = useMemo(() => makeSunMatcapMaterial(map), [map]);
 
   useFrame(({ clock }) => {
     if (!group.current) return;
     const t = clock.elapsedTime;
-    group.current.rotation.y = t * 0.02;
-    const pulse = 1 + Math.sin(t * 0.55) * 0.015;
+    const pulse = 1 + Math.sin(t * 0.55) * 0.012;
     group.current.scale.setScalar(pulse);
   });
 
   return (
     <group ref={group} position={[SUN_POS.x, SUN_POS.y, SUN_POS.z]}>
-      {/* Solid core — FrontSide, opaque, depthWrite on (no see-through holes) */}
-      <mesh renderOrder={2} frustumCulled={false}>
+      <mesh renderOrder={2} frustumCulled={false} material={material}>
         <sphereGeometry args={[radius, 96, 64]} />
-        <meshBasicMaterial
-          map={map}
-          color="#ffffff"
-          toneMapped={false}
-          transparent={false}
-          opacity={1}
-          depthWrite
-          depthTest
-          side={THREE.FrontSide}
-          fog={false}
-        />
       </mesh>
-      {/* Inner fill — catches any seam/backface without relying on alpha */}
-      <mesh scale={0.995} renderOrder={1} frustumCulled={false}>
-        <sphereGeometry args={[radius, 48, 32]} />
-        <meshBasicMaterial
-          color="#ff9a2e"
-          toneMapped={false}
-          transparent={false}
-          depthWrite
-          depthTest
-          side={THREE.BackSide}
-          fog={false}
-        />
-      </mesh>
-      {/* Soft photosphere rim */}
-      <mesh scale={1.03} renderOrder={3} frustumCulled={false}>
-        <sphereGeometry args={[radius, 48, 32]} />
-        <meshBasicMaterial
-          color="#ffb347"
-          transparent
-          opacity={0.22}
-          depthWrite={false}
-          depthTest
-          toneMapped={false}
-          side={THREE.FrontSide}
-          fog={false}
-        />
-      </mesh>
-      {/* Corona glow shells (additive, outside core) */}
-      {[1.16, 1.4, 1.75].map((s, i) => (
-        <mesh key={s} scale={s} renderOrder={0} frustumCulled={false}>
-          <sphereGeometry args={[radius, 32, 24]} />
+      {/* Single soft corona — additive billboard, not stacked spheres */}
+      <Billboard follow>
+        <mesh renderOrder={1} scale={[radius * 2.55, radius * 2.55, 1]}>
+          <planeGeometry args={[1, 1]} />
           <meshBasicMaterial
-            color={i === 0 ? "#ffcc66" : i === 1 ? "#ff9933" : "#ff6622"}
+            map={map}
             transparent
-            opacity={0.12 - i * 0.03}
+            opacity={0.28}
             depthWrite={false}
             depthTest
-            blending={THREE.AdditiveBlending}
             toneMapped={false}
-            side={THREE.BackSide}
+            blending={THREE.AdditiveBlending}
             fog={false}
           />
         </mesh>
-      ))}
+      </Billboard>
+      <Billboard follow>
+        <mesh renderOrder={0} scale={[radius * 3.4, radius * 3.4, 1]}>
+          <circleGeometry args={[1, 48]} />
+          <meshBasicMaterial
+            color="#ff9944"
+            transparent
+            opacity={0.1}
+            depthWrite={false}
+            depthTest
+            toneMapped={false}
+            blending={THREE.AdditiveBlending}
+            fog={false}
+          />
+        </mesh>
+      </Billboard>
       <pointLight
         intensity={2.2}
         distance={SUN_DIAMETER * 3}

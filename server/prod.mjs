@@ -83,7 +83,11 @@ wss.on("connection", (socket) => {
               authorId: msg.authorId,
               updatedAt: msg.updatedAt,
             });
-      if (!flag) return;
+      if (!flag) {
+        // Locked — push authoritative snapshot back to writer
+        send(socket, flagsSyncPayload());
+        return;
+      }
       const out = JSON.stringify({ type: "flag_set", flag });
       for (const client of wss.clients) {
         if (client.readyState === 1) client.send(out);

@@ -65,9 +65,11 @@ wss.on("connection", (socket) => {
               authorId: msg.authorId,
               updatedAt: msg.updatedAt,
             });
-      if (!flag) return;
+      if (!flag) {
+        send(socket, flagsSyncPayload());
+        return;
+      }
       const out = JSON.stringify({ type: "flag_set", flag });
-      // Include writer so their timers stay aligned
       for (const client of wss.clients) {
         if (client.readyState === 1) client.send(out);
       }

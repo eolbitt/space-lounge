@@ -7,6 +7,8 @@ type Props = {
   visible: boolean;
   /** Joystick / vertical pad implies wanting to drift */
   onMoveIntent?: () => void;
+  /** Pod lounge: hide Q/E vertical pad (walk on floor only) */
+  walkOnly?: boolean;
 };
 
 const DEAD = 0.12;
@@ -15,7 +17,7 @@ const DEAD = 0.12;
  * Mobile WASD/QE stand-in: left virtual stick + right vertical pad.
  * Pointer events stay on this overlay so canvas orbit/pinch stay free.
  */
-export function TouchControls({ visible, onMoveIntent }: Props) {
+export function TouchControls({ visible, onMoveIntent, walkOnly = false }: Props) {
   const stickRef = useRef<HTMLDivElement>(null);
   const knobRef = useRef<HTMLDivElement>(null);
   const stickPtr = useRef<number | null>(null);
@@ -66,7 +68,7 @@ export function TouchControls({ visible, onMoveIntent }: Props) {
 
   return (
     <div
-      className="pointer-events-none absolute inset-0 z-40 block md:hidden"
+      className={`pointer-events-none absolute inset-0 block md:hidden ${walkOnly ? "z-50" : "z-40"}`}
       aria-hidden={false}
     >
       {/* Left: virtual stick (WASD) */}
@@ -119,38 +121,40 @@ export function TouchControls({ visible, onMoveIntent }: Props) {
         </span>
       </div>
 
-      {/* Right: vertical pad (Q/E) */}
-      <div
-        data-testid="touch-vertical"
-        className="pointer-events-auto absolute bottom-28 right-4 flex touch-none select-none flex-col gap-2"
-      >
-        <VertButton
-          label="상승"
-          testId="touch-ascend"
-          onHold={(held) => {
-            touchMove.up = held;
-            if (held) {
-              touchMove.down = false;
-              onMoveIntent?.();
-            }
-          }}
+      {/* Right: vertical pad (Q/E) — hidden in pod walk mode */}
+      {!walkOnly && (
+        <div
+          data-testid="touch-vertical"
+          className="pointer-events-auto absolute bottom-28 right-4 flex touch-none select-none flex-col gap-2"
         >
-          ↑
-        </VertButton>
-        <VertButton
-          label="하강"
-          testId="touch-descend"
-          onHold={(held) => {
-            touchMove.down = held;
-            if (held) {
-              touchMove.up = false;
-              onMoveIntent?.();
-            }
-          }}
-        >
-          ↓
-        </VertButton>
-      </div>
+          <VertButton
+            label="상승"
+            testId="touch-ascend"
+            onHold={(held) => {
+              touchMove.up = held;
+              if (held) {
+                touchMove.down = false;
+                onMoveIntent?.();
+              }
+            }}
+          >
+            ↑
+          </VertButton>
+          <VertButton
+            label="하강"
+            testId="touch-descend"
+            onHold={(held) => {
+              touchMove.down = held;
+              if (held) {
+                touchMove.up = false;
+                onMoveIntent?.();
+              }
+            }}
+          >
+            ↓
+          </VertButton>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,33 +1,49 @@
 import * as THREE from "three";
 
-/** Shared planet flag — max 10 chars, overwrite by anyone, 1‑min soft timer. */
+/** Shared planet flag — max 10 chars; 1‑min forced lock then overwrite allowed. */
 export const FLAG_MAX_CHARS = 10;
-export const FLAG_TTL_MS = 60_000;
+/** Lock duration after a write — overwrite blocked until this elapses (not a delete TTL). */
+export const FLAG_LOCK_MS = 60_000;
+/** @deprecated use FLAG_LOCK_MS */
+export const FLAG_TTL_MS = FLAG_LOCK_MS;
 
 export type PlanetFlag = {
   planetId: string;
   text: string;
   authorId: string;
   updatedAt: number;
-  /** Soft timer: rewrite/overwrite resets this. After TTL without change, flag stays (stable). */
+  /** Lock ends at this time. Flag text stays; overwrite only after. */
   expiresAt: number;
-  /** Once the first minute passes without overwrite, keep indefinitely until overwrite. */
+  /** True once the lock window has passed (open for overwrite). */
   stable: boolean;
 };
 
 export type PlanetSite = {
   id: string;
   label: string;
+  /** Where the 3D flag pole is drawn */
   pos: [number, number, number];
-  /** Distance to open the flag editor */
+  /** Optional nearer point used for proximity / editor (defaults to pos) */
+  interactPos?: [number, number, number];
+  /** Distance to open the flag editor (from interactPos ?? pos) */
   reach: number;
   /** Flag tip height above planet center */
   flagLift: number;
 };
 
 /**
+ * Must stay in sync with CelestialBodies SUN_POS (distance 220).
+ * EARTH (2,-9,-16) → opposite unit * 220.
+ */
+export const SUN_FLAG_POS: [number, number, number] = [
+  -23.827, 107.223, 190.618,
+];
+/** Lounge-side approach toward the sun for planting the sun flag */
+export const SUN_INTERACT_POS: [number, number, number] = [-4, 16, 30];
+
+/**
  * Major bodies that can hold a shared flag.
- * Positions match lounge mid-ground + a few mid-far aliens (reachable-ish).
+ * Positions match lounge mid-ground + mid-far aliens + sun.
  */
 export const PLANET_SITES: PlanetSite[] = [
   {
@@ -79,6 +95,14 @@ export const PLANET_SITES: PlanetSite[] = [
     reach: 10,
     flagLift: 5,
   },
+  {
+    id: "sun",
+    label: "태양",
+    pos: SUN_FLAG_POS,
+    interactPos: SUN_INTERACT_POS,
+    reach: 18,
+    flagLift: 140,
+  },
 ];
 
 export function clampFlagText(raw: string) {
@@ -86,31 +110,50 @@ export function clampFlagText(raw: string) {
   return t.slice(0, FLAG_MAX_CHARS).join("");
 }
 
-export function isFlagVisible(flag: PlanetFlag | undefined, now = Date.now()) {
-  if (!flag || !flag.text) return false;
-  if (flag.stable) return true;
+/** Flags never auto-delete — only lock/unlock. */
+export function isFlagVisible(flag: PlanetFlag | undefined) {
+  return Boolean(flag?.text);
+}
+
+export function isFlagLocked(flag: PlanetFlag | undefined, now = Date.now()) {
+  if (!flag?.text) return false;
+  if (flag.stable) return false;
   return now < flag.expiresAt;
 }
 
+export function canWriteFlag(
+  prev: PlanetFlag | undefined,
+  now = Date.now(),
+): boolean {
+  if (!prev?.text) return true;
+  return !isFlagLocked(prev, now);
+}
+
+/**
+ * Write/overwrite. Returns null while the previous flag is still locked.
+ * A successful write starts a new 1‑minute lock.
+ */
 export function applyFlagWrite(
-  _prev: PlanetFlag | undefined,
+  prev: PlanetFlag | undefined,
   planetId: string,
   text: string,
   authorId: string,
   now = Date.now(),
-): PlanetFlag {
+): PlanetFlag | null {
+  if (!canWriteFlag(prev, now)) return null;
   const clean = clampFlagText(text);
+  if (!clean) return null;
   return {
     planetId,
     text: clean,
     authorId,
     updatedAt: now,
-    expiresAt: now + FLAG_TTL_MS,
+    expiresAt: now + FLAG_LOCK_MS,
     stable: false,
   };
 }
 
-/** Promote flags past their first minute into sticky stable state. */
+/** Promote flags past their lock window into overwrite-open state. */
 export function settleFlags(
   flags: Map<string, PlanetFlag>,
   now = Date.now(),
@@ -125,14 +168,17 @@ export function settleFlags(
   return changed;
 }
 
+function siteAnchor(site: PlanetSite) {
+  const p = site.interactPos ?? site.pos;
+  return new THREE.Vector3(p[0], p[1], p[2]);
+}
+
 export function nearestPlanetSite(
   pos: THREE.Vector3,
 ): { site: PlanetSite; dist: number } | null {
   let best: { site: PlanetSite; dist: number } | null = null;
   for (const site of PLANET_SITES) {
-    const d = pos.distanceTo(
-      new THREE.Vector3(site.pos[0], site.pos[1], site.pos[2]),
-    );
+    const d = pos.distanceTo(siteAnchor(site));
     if (d <= site.reach && (!best || d < best.dist)) {
       best = { site, dist: d };
     }

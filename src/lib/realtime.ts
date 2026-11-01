@@ -12,6 +12,8 @@ export type PeerPose = {
   position: [number, number, number];
   state: AvatarState;
   updatedAt: number;
+  /** Pod lounge floor XZ — present only while inside the walkable lounge */
+  lounge?: [number, number];
 };
 
 export type SyncTransport = "websocket" | "broadcast" | "offline";
@@ -130,7 +132,34 @@ export class PresenceRoom {
       position,
       state,
       updatedAt: Date.now(),
+      ...(this.lastSelf?.lounge ? { lounge: this.lastSelf.lounge } : {}),
     };
+    this.lastSelf = peer;
+    this.post({ type: "state", peer });
+  }
+
+  /** Floor-locked pose while inside the pod lounge. */
+  publishLounge(lounge: [number, number], state: AvatarState) {
+    const base = this.lastSelf?.position ?? ([0, 0.6, 0] as [
+      number,
+      number,
+      number,
+    ]);
+    const peer: PeerPose = {
+      id: this.selfId,
+      position: base,
+      state,
+      updatedAt: Date.now(),
+      lounge,
+    };
+    this.lastSelf = peer;
+    this.post({ type: "state", peer });
+  }
+
+  clearLounge() {
+    if (!this.lastSelf) return;
+    const { lounge: _drop, ...rest } = this.lastSelf;
+    const peer: PeerPose = { ...rest, updatedAt: Date.now() };
     this.lastSelf = peer;
     this.post({ type: "state", peer });
   }
@@ -155,7 +184,10 @@ export class PresenceRoom {
     });
   }
 
-  /** Anyone can overwrite. Resets the 1‑minute soft timer. */
+  /**
+   * Plant / overwrite a planet flag.
+   * Rejected (null) while the current flag is within its 1‑minute lock.
+   */
   setPlanetFlag(planetId: string, text: string) {
     const flag = applyFlagWrite(
       this.flags.get(planetId),
@@ -163,7 +195,7 @@ export class PresenceRoom {
       text,
       this.selfId,
     );
-    if (!flag.text) return null;
+    if (!flag) return null;
     this.flags.set(planetId, flag);
     this.emitFlags();
     this.post({ type: "flag_set", flag });
