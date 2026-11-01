@@ -71,26 +71,50 @@ export function LoungeBackdrop() {
         />
       </points>
 
-      {/* Distant nebula plates — always face camera, fixed aspect, no tiling */}
-      <Billboard follow position={[-35, 18, -55]}>
-        <mesh scale={[48, 27, 1]}>
+      {/* Distant nebula plates — bias toward empty forward (−Z) vista */}
+      <Billboard follow position={[-28, 16, -72]}>
+        <mesh scale={[56, 32, 1]}>
           <planeGeometry args={[1, 1]} />
           <meshBasicMaterial
             map={nebula}
             transparent
-            opacity={0.42}
+            opacity={0.48}
             depthWrite={false}
             toneMapped={false}
           />
         </mesh>
       </Billboard>
-      <Billboard follow position={[42, 12, -48]}>
-        <mesh scale={[36, 20, 1]} rotation={[0, 0, 0.15]}>
+      <Billboard follow position={[36, 10, -68]}>
+        <mesh scale={[44, 24, 1]} rotation={[0, 0, 0.12]}>
           <planeGeometry args={[1, 1]} />
           <meshBasicMaterial
             map={nebula}
             transparent
-            opacity={0.28}
+            opacity={0.36}
+            depthWrite={false}
+            toneMapped={false}
+          />
+        </mesh>
+      </Billboard>
+      <Billboard follow position={[8, 26, -50]}>
+        <mesh scale={[40, 22, 1]}>
+          <planeGeometry args={[1, 1]} />
+          <meshBasicMaterial
+            map={nebula}
+            transparent
+            opacity={0.3}
+            depthWrite={false}
+            toneMapped={false}
+          />
+        </mesh>
+      </Billboard>
+      <Billboard follow position={[-50, 8, -40]}>
+        <mesh scale={[38, 21, 1]} rotation={[0, 0, -0.1]}>
+          <planeGeometry args={[1, 1]} />
+          <meshBasicMaterial
+            map={nebula}
+            transparent
+            opacity={0.26}
             depthWrite={false}
             toneMapped={false}
           />

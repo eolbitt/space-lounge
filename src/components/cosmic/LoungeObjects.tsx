@@ -31,6 +31,19 @@ export const ASTEROID_SPOTS: [number, number, number, number][] = [
   [13.5, 2.2, 5.0, 0.75],
   [-7.8, 3.5, -1.5, 0.88],
   [3.2, 4.0, 9.0, 0.7],
+  // denser Rest ring — fills empty mid-vista seats
+  [-0.8, 0.6, -7.5, 1.0],
+  [6.2, 0.9, -11.2, 0.9],
+  [-6.8, -0.4, -8.8, 1.05],
+  [2.0, 3.6, -5.2, 0.72],
+  [-15.5, 2.8, -9.5, 0.85],
+  [18.2, -0.5, -7.0, 0.8],
+  [-3.8, -2.2, 4.5, 1.0],
+  [10.5, 4.2, -3.5, 0.7],
+  [-9.5, 1.2, -20.5, 1.1],
+  [15.8, -1.8, 8.5, 0.95],
+  [0.2, 5.5, -12.0, 0.68],
+  [-20.5, 1.5, -6.0, 0.78],
 ];
 
 /** Extra warm rest pods (mini lounge seats) — atmosphere only */
@@ -40,6 +53,12 @@ export const REST_PODS: [number, number, number, number][] = [
   [9.8, -0.2, -8.5, 1.9],
   [-3.5, 1.4, -6.8, 2.0],
   [14.2, 1.0, 2.5, 1.85],
+  // more mini pods across mid-space
+  [-1.8, 0.2, -12.5, 2.0],
+  [7.5, 2.2, -15.5, 1.75],
+  [-16.2, -0.3, 5.5, 2.15],
+  [19.5, 0.8, -4.5, 1.8],
+  [1.2, 3.0, 11.5, 1.7],
 ];
 
 /** Warm lounge pod — atmosphere / Rest perch (no landing mission). */
@@ -49,48 +68,86 @@ export const EARTH_POS = new THREE.Vector3(2, -9, -16);
 export const MOON_POS = new THREE.Vector3(22, 10, -28);
 export const PLANET_POS = new THREE.Vector3(-24, 12, -30);
 
-/** Distant sky dressing — fills empty deep-space vistas (far from play volume). */
+/**
+ * Distant sky dressing — fills empty deep-space vistas.
+ * Placed outside play volume; bias toward -Z forward hemisphere
+ * (default orbit looks from +Z toward origin / Earth).
+ * Keep well below sun diameter (180) so scale hierarchy holds.
+ */
 const DISTANT_BODIES: {
   tex: "ice" | "red" | "gas" | "dwarf" | "star" | "nebula" | "moon" | "planet";
   pos: [number, number, number];
   size: number;
 }[] = [
-  { tex: "ice", pos: [48, 22, 35], size: 11 },
-  { tex: "red", pos: [-55, 8, 42], size: 9 },
-  { tex: "gas", pos: [38, -18, 55], size: 14 },
-  { tex: "dwarf", pos: [-28, 28, 48], size: 4.2 },
-  { tex: "dwarf", pos: [62, 5, -20], size: 3.6 },
-  { tex: "moon", pos: [-40, -12, 58], size: 3.2 },
-  { tex: "planet", pos: [20, 32, 70], size: 7.5 },
-  { tex: "ice", pos: [-70, 18, -25], size: 8 },
-  { tex: "red", pos: [55, -22, -40], size: 6.5 },
-  { tex: "gas", pos: [-15, 40, -55], size: 12 },
-  { tex: "star", pos: [25, 18, 40], size: 2.8 },
-  { tex: "star", pos: [-32, 12, 30], size: 2.2 },
-  { tex: "star", pos: [12, -8, 52], size: 3.4 },
-  { tex: "star", pos: [-50, 25, 15], size: 1.9 },
-  { tex: "star", pos: [45, 8, -50], size: 2.5 },
-  { tex: "star", pos: [-8, 30, 25], size: 2.0 },
-  { tex: "nebula", pos: [30, 15, 45], size: 28 },
-  { tex: "nebula", pos: [-45, 10, 38], size: 32 },
-  { tex: "nebula", pos: [5, 25, 60], size: 24 },
-  { tex: "dwarf", pos: [18, -14, 38], size: 2.8 },
-  { tex: "ice", pos: [-22, -20, 65], size: 5.5 },
-  { tex: "moon", pos: [70, 16, 10], size: 4.0 },
+  // ——— forward empty vista (−Z) ———
+  { tex: "ice", pos: [18, 14, -62], size: 12 },
+  { tex: "gas", pos: [-28, 8, -70], size: 15 },
+  { tex: "red", pos: [42, -6, -58], size: 8 },
+  { tex: "planet", pos: [-8, 22, -75], size: 9 },
+  { tex: "moon", pos: [32, 18, -48], size: 4.5 },
+  { tex: "dwarf", pos: [-38, -4, -52], size: 5.5 },
+  { tex: "ice", pos: [8, -16, -68], size: 7 },
+  { tex: "red", pos: [-48, 16, -40], size: 6.8 },
+  { tex: "gas", pos: [55, 12, -45], size: 11 },
+  { tex: "dwarf", pos: [-12, 28, -55], size: 4.8 },
+  { tex: "moon", pos: [5, 6, -80], size: 3.8 },
+  { tex: "planet", pos: [-55, -10, -48], size: 7.2 },
+  // ——— left / right flanks ———
+  { tex: "ice", pos: [-72, 12, -18], size: 10 },
+  { tex: "red", pos: [68, 6, -22], size: 8.5 },
+  { tex: "gas", pos: [-60, -14, 8], size: 12 },
+  { tex: "planet", pos: [65, -12, 12], size: 7 },
+  { tex: "moon", pos: [-50, 22, 5], size: 4.2 },
+  { tex: "dwarf", pos: [58, 20, -8], size: 5 },
+  { tex: "ice", pos: [-45, -18, -28], size: 6.5 },
+  { tex: "red", pos: [48, 24, 18], size: 6 },
+  // ——— above / below empty sky ———
+  { tex: "gas", pos: [12, 42, -35], size: 13 },
+  { tex: "ice", pos: [-20, 38, -20], size: 8 },
+  { tex: "planet", pos: [25, -28, -30], size: 7.5 },
+  { tex: "dwarf", pos: [-30, -26, -15], size: 5.2 },
+  { tex: "moon", pos: [0, 35, 10], size: 4 },
+  // ——— behind (+Z) so yaw still finds sky ———
+  { tex: "ice", pos: [40, 18, 55], size: 9 },
+  { tex: "red", pos: [-42, 10, 50], size: 7.5 },
+  { tex: "gas", pos: [10, -20, 62], size: 11 },
+  { tex: "dwarf", pos: [-15, 30, 45], size: 4.5 },
+  { tex: "moon", pos: [55, -8, 38], size: 3.6 },
+  // ——— bright stars (flare sprites — size reads as glow diameter) ———
+  { tex: "star", pos: [22, 20, -55], size: 5.5 },
+  { tex: "star", pos: [-30, 14, -60], size: 4.8 },
+  { tex: "star", pos: [8, -10, -72], size: 6.2 },
+  { tex: "star", pos: [-55, 8, -30], size: 4.2 },
+  { tex: "star", pos: [50, 16, -35], size: 5.0 },
+  { tex: "star", pos: [-18, 32, -40], size: 3.8 },
+  { tex: "star", pos: [35, -14, -50], size: 4.5 },
+  { tex: "star", pos: [-5, 25, 48], size: 4.0 },
+  { tex: "star", pos: [60, 5, 20], size: 3.6 },
+  { tex: "star", pos: [-65, -5, -5], size: 4.4 },
+  { tex: "star", pos: [15, 40, -15], size: 3.5 },
+  { tex: "star", pos: [-40, -20, -45], size: 3.9 },
+  // ——— nebula patches (soft atmosphere, lower opacity in renderer) ———
+  { tex: "nebula", pos: [20, 16, -65], size: 36 },
+  { tex: "nebula", pos: [-35, 12, -58], size: 40 },
+  { tex: "nebula", pos: [5, 28, -48], size: 32 },
+  { tex: "nebula", pos: [48, 8, -30], size: 28 },
+  { tex: "nebula", pos: [-50, 6, -25], size: 30 },
+  { tex: "nebula", pos: [-10, -8, 55], size: 26 },
 ];
-
 function CelestialBillboard({
   map,
   position,
   size,
   renderOrder = 2,
   opacity = 1,
+  additive = false,
 }: {
   map: THREE.Texture;
   position: [number, number, number];
   size: number;
   renderOrder?: number;
   opacity?: number;
+  additive?: boolean;
 }) {
   return (
     <Billboard follow position={position}>
@@ -103,6 +160,7 @@ function CelestialBillboard({
           depthWrite={false}
           toneMapped={false}
           side={THREE.DoubleSide}
+          blending={additive ? THREE.AdditiveBlending : THREE.NormalBlending}
         />
       </mesh>
     </Billboard>
@@ -226,8 +284,11 @@ export function LoungeObjects() {
             map={texFor(b.tex)}
             position={b.pos}
             size={b.size}
-            renderOrder={b.tex === "nebula" ? 0 : 1}
-            opacity={b.tex === "nebula" ? 0.55 : b.tex === "star" ? 0.9 : 0.95}
+            renderOrder={b.tex === "nebula" ? 0 : b.tex === "star" ? 2 : 1}
+            opacity={
+              b.tex === "nebula" ? 0.5 : b.tex === "star" ? 0.95 : 0.96
+            }
+            additive={b.tex === "star"}
           />
         ))}
       </group>

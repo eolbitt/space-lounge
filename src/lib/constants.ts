@@ -12,13 +12,13 @@ export const HEART_COOLDOWN_MS = 14000;
 export const DRIFT_SPEED = 3.4;
 export const IDLE_DRIFT = 0.55;
 
-/** Soft world bounds — wide lounge so celestial bodies feel reachable */
+/** Soft world bounds — wide lounge so Rest seats stay reachable */
 export const WORLD_BOUNDS = {
-  x: 32,
+  x: 36,
   yMin: -6,
-  yMax: 16,
-  zMin: -28,
-  zMax: 22,
+  yMax: 18,
+  zMin: -32,
+  zMax: 24,
 } as const;
 
 export type AvatarState = "idle" | "move" | "rest" | "wave";
