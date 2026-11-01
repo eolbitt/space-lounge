@@ -26,6 +26,7 @@ const PEER_SCALE = 2.7;
 const SIT_REACH = 1.75;
 
 type SitVista = "earth" | "sun";
+type SitSide = "left" | "right";
 
 type Seat = {
   id: string;
@@ -34,17 +35,19 @@ type Seat = {
   yaw: number;
   sitY: number;
   facing: number;
-  /** Fullscreen sit look — opposite (+Z) seats face Earth; window-side (−Z) face sun */
+  /** Fullscreen sit look — opposite (+Z) → Earth; window (−Z) → sun */
   vista: SitVista;
+  /** Left/right chair bank — biases sit camera */
+  side: SitSide;
 };
 
 /** Chairs at edges — walkable through (no furniture collision) */
 const SEATS: Seat[] = [
-  { id: "c0", x: -3.7, z: 2.85, yaw: 0.45, sitY: 0.32, facing: 1, vista: "earth" },
-  { id: "c1", x: -1.85, z: 3.35, yaw: 0.08, sitY: 0.32, facing: 1, vista: "earth" },
-  { id: "c2", x: 3.45, z: 2.7, yaw: -0.55, sitY: 0.32, facing: -1, vista: "earth" },
-  { id: "c3", x: 1.85, z: -3.35, yaw: Math.PI * 0.9, sitY: 0.32, facing: 1, vista: "sun" },
-  { id: "c4", x: -3.35, z: -3.2, yaw: Math.PI * 1.1, sitY: 0.32, facing: -1, vista: "sun" },
+  { id: "c0", x: -3.7, z: 2.85, yaw: 0.45, sitY: 0.32, facing: 1, vista: "earth", side: "left" },
+  { id: "c1", x: -1.85, z: 3.35, yaw: 0.08, sitY: 0.32, facing: 1, vista: "earth", side: "left" },
+  { id: "c2", x: 3.45, z: 2.7, yaw: -0.55, sitY: 0.32, facing: -1, vista: "earth", side: "right" },
+  { id: "c3", x: 1.85, z: -3.35, yaw: Math.PI * 0.9, sitY: 0.32, facing: 1, vista: "sun", side: "right" },
+  { id: "c4", x: -3.35, z: -3.2, yaw: Math.PI * 1.1, sitY: 0.32, facing: -1, vista: "sun", side: "left" },
 ];
 
 /** Soft room edge only — furniture/chairs are pass-through */
@@ -107,6 +110,7 @@ export type SitHud = {
   sitting: boolean;
   seatLabel: string | null;
   vista: SitVista;
+  side: SitSide;
 };
 
 type WalkerProps = {
@@ -119,9 +123,15 @@ type WalkerProps = {
 
 /**
  * Full-screen sit vista — same lounge backdrop + celestial assets.
- * Opposite seats → Earth; window/sun-side seats → sun corridor.
+ * Opposite seats → Earth; window seats → sun; left/right bank shifts angle.
  */
-function SitSpaceView({ vista }: { vista: SitVista }) {
+function SitSpaceView({
+  vista,
+  side,
+}: {
+  vista: SitVista;
+  side: SitSide;
+}) {
   const look = useRef(new THREE.Vector3());
   const sunBias = useMemo(
     () => EARTH_POS.clone().lerp(SUN_POS, 0.42),
@@ -131,34 +141,36 @@ function SitSpaceView({ vista }: { vista: SitVista }) {
     () => EARTH_POS.clone().add(new THREE.Vector3(0, 2, 4)),
     [],
   );
+  const sideSign = side === "left" ? -1 : 1;
 
   useFrame(({ clock, camera }) => {
     const t = clock.elapsedTime;
     if (vista === "earth") {
-      // Hover near lounge, looking at Earth billboard
-      const yaw = -0.15 + Math.sin(t * 0.035) * 0.2;
-      const pitch = -0.18 + Math.sin(t * 0.04) * 0.05;
-      const dist = 22 + Math.sin(t * 0.03) * 2;
+      // Left bank looks past Earth from −X; right bank from +X
+      const yaw = sideSign * 0.95 + Math.sin(t * 0.035) * 0.14;
+      const pitch = -0.14 + Math.sin(t * 0.04) * 0.05;
+      const dist = 26 + Math.sin(t * 0.03) * 2;
       camera.position.set(
-        EARTH_POS.x + Math.sin(yaw) * dist * 0.35 + 6,
-        EARTH_POS.y + 8 + Math.sin(t * 0.05) * 1.5,
+        EARTH_POS.x + Math.sin(yaw) * dist * 0.7 + sideSign * 14,
+        EARTH_POS.y + 6.5 + Math.sin(t * 0.05) * 1.2,
         EARTH_POS.z + Math.cos(yaw) * dist + 10,
       );
       look.current.copy(earthFocus);
-      look.current.x += Math.sin(t * 0.04) * 1.5;
-      look.current.y += Math.cos(t * 0.03) * 1.2;
+      look.current.x += sideSign * 7 + Math.sin(t * 0.04) * 1.0;
+      look.current.y += Math.cos(t * 0.03) * 1.0;
     } else {
-      const yaw = t * 0.028 + 0.6;
-      const pitch = 0.1 + Math.sin(t * 0.045) * 0.06;
-      const dist = 16 + Math.sin(t * 0.033) * 2.5;
+      // Sun window: left bank orbits −side, right bank +side
+      const yaw = t * 0.022 + Math.PI * 0.5 + sideSign * 1.15;
+      const pitch = 0.08 + Math.sin(t * 0.045) * 0.05;
+      const dist = 18 + Math.sin(t * 0.033) * 2.2;
       camera.position.set(
-        Math.sin(yaw) * Math.cos(pitch) * dist + Math.sin(t * 0.02) * 1.2,
-        4.5 + Math.sin(t * 0.05) * 2.2,
+        Math.sin(yaw) * Math.cos(pitch) * dist + sideSign * 7,
+        5.2 + Math.sin(t * 0.05) * 2.0,
         Math.cos(yaw) * Math.cos(pitch) * dist,
       );
       look.current.copy(sunBias);
-      look.current.x += Math.sin(t * 0.04) * 6;
-      look.current.y += Math.cos(t * 0.035) * 4;
+      look.current.x += sideSign * 14 + Math.sin(t * 0.04) * 4;
+      look.current.y += Math.cos(t * 0.035) * 3.5;
     }
     camera.lookAt(look.current);
     camera.near = 0.05;
@@ -208,6 +220,7 @@ function PodWalker({
   const sitting = useRef(false);
   const seatId = useRef<string | null>(null);
   const vistaRef = useRef<SitVista>("sun");
+  const sideRef = useRef<SitSide>("left");
   const publishAcc = useRef(0);
   const lastSitReq = useRef(0);
   const lastStandReq = useRef(0);
@@ -225,6 +238,7 @@ function PodWalker({
     sitting.current = true;
     seatId.current = seat.id;
     vistaRef.current = seat.vista;
+    sideRef.current = seat.side;
     pos.current.set(seat.x, seat.sitY, seat.z);
     setFacing(seat.facing);
     setState("rest");
@@ -236,6 +250,7 @@ function PodWalker({
     sitting.current = false;
     seatId.current = null;
     vistaRef.current = "sun";
+    sideRef.current = "left";
     if (seat) {
       // Step toward room center — no collider to snag on
       const ox = -Math.sin(seat.yaw) * 0.85;
@@ -377,11 +392,16 @@ function PodWalker({
       nearSeat: Boolean(near) || sitting.current,
       sitting: sitting.current,
       seatLabel: sitting.current
-        ? "앉아 있어요"
+        ? sideRef.current === "left"
+          ? "왼쪽 시야"
+          : "오른쪽 시야"
         : near
-          ? "의자 근처"
+          ? near.seat.side === "left"
+            ? "왼쪽 의자"
+            : "오른쪽 의자"
           : null,
       vista: sitting.current ? vistaRef.current : near?.seat.vista ?? "sun",
+      side: sitting.current ? sideRef.current : near?.seat.side ?? "left",
     });
 
     publishAcc.current += clamped;
@@ -662,11 +682,16 @@ function LoungeScene({
   onSeatTap,
   sitting,
   vista,
-}: WalkerProps & { onSeatTap: (id: string) => void; vista: SitVista }) {
+  side,
+}: WalkerProps & {
+  onSeatTap: (id: string) => void;
+  vista: SitVista;
+  side: SitSide;
+}) {
   return (
     <>
       {sitting ? (
-        <SitSpaceView vista={vista} />
+        <SitSpaceView vista={vista} side={side} />
       ) : (
         <LoungeRoom onSeatTap={onSeatTap} />
       )}
@@ -694,6 +719,7 @@ export function PodInterior({ visible, onExit, onSittingChange }: Props) {
     sitting: false,
     seatLabel: null,
     vista: "sun",
+    side: "left",
   });
   const [sitRequest, setSitRequest] = useState(0);
   const [standRequest, setStandRequest] = useState(0);
@@ -717,7 +743,8 @@ export function PodInterior({ visible, onExit, onSittingChange }: Props) {
       prev.nearSeat === hud.nearSeat &&
       prev.sitting === hud.sitting &&
       prev.seatLabel === hud.seatLabel &&
-      prev.vista === hud.vista
+      prev.vista === hud.vista &&
+      prev.side === hud.side
         ? prev
         : hud,
     );
@@ -760,6 +787,7 @@ export function PodInterior({ visible, onExit, onSittingChange }: Props) {
           onSeatTap={onSeatTap}
           sitting={sitting}
           vista={sitHud.vista}
+          side={sitHud.side}
         />
       </Canvas>
 

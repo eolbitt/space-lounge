@@ -382,22 +382,9 @@ export function LoungeObjects() {
             position={[0, 0, 0]}
             size={s * 1.15}
             renderOrder={3}
-            alphaTest={0.45}
+            alphaTest={0.5}
             depthWrite
           />
-          <mesh
-            rotation={[0.4 + i * 0.2, 0.6 + i * 0.15, 0.1]}
-            scale={s * 0.28}
-            position={[0, -0.05, 0.05]}
-          >
-            <icosahedronGeometry args={[1, 0]} />
-            <meshStandardMaterial
-              color="#3a3a40"
-              roughness={0.95}
-              metalness={0.05}
-              flatShading
-            />
-          </mesh>
         </group>
       ))}
     </group>

@@ -40,6 +40,8 @@ export function Astronaut({
     const tex = textures[idx] ?? textures[0];
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+    // Premultiply-ish: avoid dark fringe; interior is baked opaque in PNGs
+    tex.premultiplyAlpha = false;
     tex.needsUpdate = true;
     return tex;
   }, [state, textures]);
@@ -121,10 +123,13 @@ export function Astronaut({
             <meshBasicMaterial
               map={map}
               transparent
-              opacity={self ? 1 : 0.92}
-              depthWrite={false}
+              alphaTest={0.6}
+              opacity={1}
+              depthWrite
+              depthTest
               side={THREE.DoubleSide}
               toneMapped={false}
+              alphaToCoverage={false}
             />
           </mesh>
           {/* Tiny motion cue chevron when climbing/diving */}
