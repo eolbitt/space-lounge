@@ -5,6 +5,13 @@ import type { LoungeAction } from "@/lib/constants";
 import { mockOnlineCount } from "@/lib/presence";
 import { loungeAudio } from "@/lib/audio";
 import type { SyncTransport } from "@/lib/realtime";
+import {
+  FLAG_MAX_CHARS,
+  FLAG_TTL_MS,
+  isFlagVisible,
+  type PlanetFlag,
+  type PlanetSite,
+} from "@/lib/planetFlags";
 
 type Props = {
   visible: boolean;
@@ -14,6 +21,9 @@ type Props = {
   nearPod?: boolean;
   onEnterPod?: () => void;
   transport?: SyncTransport;
+  nearPlanet?: PlanetSite | null;
+  planetFlag?: PlanetFlag | null;
+  onSetFlag?: (planetId: string, text: string) => void;
 };
 
 const ACTIONS: { id: LoungeAction; label: string; icon: string }[] = [
@@ -34,10 +44,15 @@ export function Hud({
   nearPod = false,
   onEnterPod,
   transport = "offline",
+  nearPlanet = null,
+  planetFlag = null,
+  onSetFlag,
 }: Props) {
   const [online, setOnline] = useState(213);
   const [musicOn, setMusicOn] = useState(true);
   const [sfxOn, setSfxOn] = useState(true);
+  const [flagDraft, setFlagDraft] = useState("");
+  const [flagNow, setFlagNow] = useState(() => Date.now());
 
   useEffect(() => {
     if (!visible) return;
@@ -48,7 +63,26 @@ export function Hud({
     return () => window.clearInterval(id);
   }, [visible]);
 
+  useEffect(() => {
+    if (!nearPlanet) {
+      setFlagDraft("");
+      return;
+    }
+    setFlagDraft(planetFlag?.text ?? "");
+  }, [nearPlanet?.id, planetFlag?.text, nearPlanet]);
+
+  useEffect(() => {
+    if (!nearPlanet) return;
+    const id = window.setInterval(() => setFlagNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [nearPlanet]);
+
   const together = online + livePeers;
+  const flagShown = isFlagVisible(planetFlag ?? undefined, flagNow);
+  const softLeft =
+    planetFlag && !planetFlag.stable && flagShown
+      ? Math.max(0, Math.ceil((planetFlag.expiresAt - flagNow) / 1000))
+      : null;
 
   if (!visible) return null;
 
@@ -133,6 +167,60 @@ export function Hud({
       </header>
 
       <div className="flex flex-col items-center gap-3">
+        {nearPlanet && onSetFlag && (
+          <form
+            className="pointer-events-auto relative z-50 flex w-[min(92vw,22rem)] flex-col gap-2 rounded-xl border border-white/20 bg-[#0a121c]/88 px-3 py-3 shadow-[0_8px_28px_rgba(0,0,0,0.45)] backdrop-blur-md animate-fade-in"
+            onSubmit={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const t = flagDraft.trim();
+              if (!t) return;
+              onSetFlag(nearPlanet.id, t);
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="font-sans text-xs tracking-wide text-[#e8eef4]">
+                {nearPlanet.label} 깃발
+              </p>
+              <p className="font-sans text-[10px] text-[#8a9aaa]">
+                {flagShown && planetFlag?.stable
+                  ? "유지 중 · 덮어쓰기 가능"
+                  : softLeft != null
+                    ? `${softLeft}초 후 유지`
+                    : `작성 후 ${FLAG_TTL_MS / 1000}초 · 공유`}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <input
+                value={flagDraft}
+                maxLength={FLAG_MAX_CHARS}
+                placeholder="최대 10자"
+                aria-label={`${nearPlanet.label} 깃발 문구`}
+                onChange={(e) => {
+                  const chars = Array.from(e.target.value);
+                  setFlagDraft(chars.slice(0, FLAG_MAX_CHARS).join(""));
+                }}
+                className="min-w-0 flex-1 rounded-lg border border-white/18 bg-[#060a10]/8 px-3 py-2 font-sans text-sm text-[#f2f5f8] outline-none placeholder:text-[#6a7a8a] focus:border-[#9eb8c8]/55"
+              />
+              <button
+                type="submit"
+                className="shrink-0 rounded-lg border border-[#c8d8e8]/35 bg-[#1a2838]/9 px-3 py-2 font-sans text-sm text-[#eef3f8] transition hover:border-[#e8eef4]/55"
+              >
+                꽂기
+              </button>
+            </div>
+            {flagShown && planetFlag?.text ? (
+              <p className="font-sans text-[11px] text-[#9eb0c4]">
+                지금: <span className="text-[#f2f5f8]">{planetFlag.text}</span>
+              </p>
+            ) : (
+              <p className="font-sans text-[11px] text-[#7a8a9a]">
+                비어 있어요 · 누구나 덮어쓸 수 있어요
+              </p>
+            )}
+          </form>
+        )}
         {nearPod && onEnterPod && (
           <button
             type="button"

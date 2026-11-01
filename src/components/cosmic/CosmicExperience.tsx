@@ -10,6 +10,7 @@ import { TouchControls } from "./TouchControls";
 import type { LoungeAction } from "@/lib/constants";
 import { loungeAudio } from "@/lib/audio";
 import { getPresenceRoom, type SyncTransport } from "@/lib/realtime";
+import type { PlanetFlag, PlanetSite } from "@/lib/planetFlags";
 
 export function CosmicExperience() {
   const [mounted, setMounted] = useState(false);
@@ -19,6 +20,8 @@ export function CosmicExperience() {
   const [nearPod, setNearPod] = useState(false);
   const [insidePod, setInsidePod] = useState(false);
   const [transport, setTransport] = useState<SyncTransport>("offline");
+  const [nearPlanet, setNearPlanet] = useState<PlanetSite | null>(null);
+  const [flags, setFlags] = useState<Map<string, PlanetFlag>>(() => new Map());
   const { bursts, hearts, addHeart } = useHeartBursts();
 
   useEffect(() => {
@@ -39,6 +42,7 @@ export function CosmicExperience() {
       },
       onPeers: (peers) => setPeerCount(peers.size),
       onTransport: setTransport,
+      onFlags: (next) => setFlags(new Map(next)),
     });
   }, [entered, addHeart]);
 
@@ -65,6 +69,10 @@ export function CosmicExperience() {
     setAction("drift");
   }, []);
 
+  const onSetFlag = useCallback((planetId: string, text: string) => {
+    getPresenceRoom()?.setPlanetFlag(planetId, text);
+  }, []);
+
   useEffect(() => {
     const w = window as unknown as {
       __enterPod?: () => void;
@@ -83,6 +91,8 @@ export function CosmicExperience() {
     setAction((prev) => (prev === "drift" ? prev : "drift"));
   }, []);
 
+  const planetFlag = nearPlanet ? flags.get(nearPlanet.id) ?? null : null;
+
   return (
     <main className="relative h-[100dvh] w-full overflow-hidden overscroll-none bg-[#05060f] [-webkit-user-select:none] [user-select:none]">
       {mounted ? (
@@ -92,6 +102,7 @@ export function CosmicExperience() {
           onHeart={onHeart}
           onPeerCount={setPeerCount}
           onNearPod={setNearPod}
+          onNearPlanet={setNearPlanet}
         />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center bg-[#05060f]">
@@ -111,6 +122,9 @@ export function CosmicExperience() {
         nearPod={nearPod}
         onEnterPod={enterPod}
         transport={transport}
+        nearPlanet={nearPlanet}
+        planetFlag={planetFlag}
+        onSetFlag={onSetFlag}
       />
       <TouchControls
         visible={entered && !insidePod}

@@ -1,4 +1,9 @@
 import type { AvatarState } from "./constants";
+import {
+  applyFlagWrite,
+  settleFlags,
+  type PlanetFlag,
+} from "./planetFlags";
 
 export const ROOM_CHANNEL = "space-lounge-presence-v1";
 
@@ -16,7 +21,9 @@ type WireMsg =
   | { type: "state"; peer: PeerPose }
   | { type: "bye"; id: string }
   | { type: "who"; id: string }
-  | { type: "heart"; fromId: string; toId: string; at: number };
+  | { type: "heart"; fromId: string; toId: string; at: number }
+  | { type: "flag_set"; flag: PlanetFlag }
+  | { type: "flags_sync"; flags: PlanetFlag[] };
 
 function newId() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
@@ -54,17 +61,19 @@ type Listener = {
   onPeers?: (peers: Map<string, PeerPose>) => void;
   onRemoteHeart?: (payload: { fromId: string; toId: string }) => void;
   onTransport?: (t: SyncTransport) => void;
+  onFlags?: (flags: Map<string, PlanetFlag>) => void;
 };
 
 /**
  * Cross-device presence: WebSocket relay + BroadcastChannel fallback.
- * Anonymous astronaut poses only — no names/profiles.
+ * Anonymous astronaut poses + shared planet flags.
  */
 export class PresenceRoom {
   readonly selfId: string;
   private channel: BroadcastChannel | null = null;
   private socket: WebSocket | null = null;
   private peers = new Map<string, PeerPose>();
+  private flags = new Map<string, PlanetFlag>();
   private listeners = new Set<Listener>();
   private pruneTimer: number | null = null;
   private reconnectTimer: number | null = null;
@@ -79,7 +88,7 @@ export class PresenceRoom {
     if (typeof window !== "undefined" && typeof BroadcastChannel !== "undefined") {
       this.channel = new BroadcastChannel(ROOM_CHANNEL);
       this.channel.onmessage = (ev: MessageEvent<WireMsg>) => {
-        this.handle(ev.data);
+        this.handle(ev.data, "broadcast");
       };
       if (this.transport === "offline") this.setTransport("broadcast");
     }
@@ -101,10 +110,15 @@ export class PresenceRoom {
     return this.transport;
   }
 
+  getFlags() {
+    return new Map(this.flags);
+  }
+
   subscribe(listener: Listener) {
     this.listeners.add(listener);
     listener.onPeers?.(new Map(this.peers));
     listener.onTransport?.(this.transport);
+    listener.onFlags?.(new Map(this.flags));
     return () => {
       this.listeners.delete(listener);
     };
@@ -139,6 +153,21 @@ export class PresenceRoom {
       toId,
       at: Date.now(),
     });
+  }
+
+  /** Anyone can overwrite. Resets the 1‑minute soft timer. */
+  setPlanetFlag(planetId: string, text: string) {
+    const flag = applyFlagWrite(
+      this.flags.get(planetId),
+      planetId,
+      text,
+      this.selfId,
+    );
+    if (!flag.text) return null;
+    this.flags.set(planetId, flag);
+    this.emitFlags();
+    this.post({ type: "flag_set", flag });
+    return flag;
   }
 
   leave() {
@@ -185,7 +214,7 @@ export class PresenceRoom {
       ws.onmessage = (ev) => {
         try {
           const msg = JSON.parse(String(ev.data)) as WireMsg;
-          this.handle(msg);
+          this.handle(msg, "websocket");
         } catch {
           /* ignore bad payloads */
         }
@@ -232,7 +261,7 @@ export class PresenceRoom {
     }
   }
 
-  private handle(msg: WireMsg) {
+  private handle(msg: WireMsg, _via: SyncTransport) {
     if (!msg || typeof msg !== "object") return;
     if (msg.type === "who") {
       if (msg.id === this.selfId) return;
@@ -250,6 +279,32 @@ export class PresenceRoom {
       for (const l of this.listeners) l.onRemoteHeart?.(msg);
       return;
     }
+    if (msg.type === "flags_sync") {
+      const next = new Map<string, PlanetFlag>();
+      for (const f of msg.flags || []) {
+        if (f?.planetId && f.text) next.set(f.planetId, f);
+      }
+      this.flags = next;
+      settleFlags(this.flags);
+      this.emitFlags();
+      return;
+    }
+    if (msg.type === "flag_set") {
+      const flag = msg.flag;
+      if (!flag?.planetId || !flag.text) return;
+      // Ignore echo of our own optimistic write unless remote is newer
+      const prev = this.flags.get(flag.planetId);
+      if (
+        prev &&
+        prev.authorId === this.selfId &&
+        prev.updatedAt >= flag.updatedAt
+      ) {
+        return;
+      }
+      this.flags.set(flag.planetId, flag);
+      this.emitFlags();
+      return;
+    }
     if (msg.type === "hello" || msg.type === "state") {
       const peer = msg.peer;
       if (!peer || peer.id === this.selfId) return;
@@ -263,6 +318,11 @@ export class PresenceRoom {
     for (const l of this.listeners) l.onPeers?.(snap);
   }
 
+  private emitFlags() {
+    const snap = new Map(this.flags);
+    for (const l of this.listeners) l.onFlags?.(snap);
+  }
+
   private prune() {
     const now = Date.now();
     let changed = false;
@@ -273,6 +333,7 @@ export class PresenceRoom {
       }
     }
     if (changed) this.emitPeers();
+    if (settleFlags(this.flags, now)) this.emitFlags();
   }
 }
 

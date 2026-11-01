@@ -1,13 +1,16 @@
 "use client";
 
-import { Suspense, useRef } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import * as THREE from "three";
 import { LoungeBackdrop } from "./LoungeBackdrop";
 import { LoungeObjects } from "./LoungeObjects";
+import { PlanetFlags } from "./PlanetFlags";
 import { Visitors } from "./Visitors";
 import { PlayerController } from "./PlayerController";
 import type { LoungeAction } from "@/lib/constants";
+import { getPresenceRoom } from "@/lib/realtime";
+import type { PlanetFlag, PlanetSite } from "@/lib/planetFlags";
 
 type Props = {
   entered: boolean;
@@ -18,6 +21,7 @@ type Props = {
   }) => void;
   onPeerCount?: (count: number) => void;
   onNearPod?: (near: boolean) => void;
+  onNearPlanet?: (site: PlanetSite | null) => void;
 };
 
 export function SpaceScene({
@@ -26,8 +30,28 @@ export function SpaceScene({
   onHeart,
   onPeerCount,
   onNearPod,
+  onNearPlanet,
 }: Props) {
   const playerRef = useRef<THREE.Group>(null);
+  const [flags, setFlags] = useState<Map<string, PlanetFlag>>(
+    () => new Map(),
+  );
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!entered) return;
+    const room = getPresenceRoom();
+    if (!room) return;
+    return room.subscribe({
+      onFlags: (next) => setFlags(new Map(next)),
+    });
+  }, [entered]);
+
+  useEffect(() => {
+    if (!entered) return;
+    const id = window.setInterval(() => setNow(Date.now()), 2000);
+    return () => window.clearInterval(id);
+  }, [entered]);
 
   return (
     <Canvas
@@ -51,12 +75,14 @@ export function SpaceScene({
 
         <LoungeBackdrop />
         <LoungeObjects />
+        <PlanetFlags flags={flags} now={now} />
 
         <PlayerController
           playerRef={playerRef}
           action={action}
           entered={entered}
           onNearPod={onNearPod}
+          onNearPlanet={onNearPlanet}
         />
 
         {entered && (

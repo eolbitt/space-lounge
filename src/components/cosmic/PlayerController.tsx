@@ -15,12 +15,14 @@ import {
 import { loungeAudio } from "@/lib/audio";
 import { getPresenceRoom } from "@/lib/realtime";
 import { touchMove, touchMoveActive } from "@/lib/touchMove";
+import { nearestPlanetSite, type PlanetSite } from "@/lib/planetFlags";
 
 type Props = {
   playerRef: React.RefObject<THREE.Group | null>;
   action: LoungeAction;
   entered: boolean;
   onNearPod?: (near: boolean) => void;
+  onNearPlanet?: (site: PlanetSite | null) => void;
 };
 
 const keys = new Set<string>();
@@ -56,6 +58,7 @@ export function PlayerController({
   action,
   entered,
   onNearPod,
+  onNearPlanet,
 }: Props) {
   const { camera, gl, scene } = useThree();
   const velocity = useRef(new THREE.Vector3());
@@ -85,6 +88,7 @@ export function PlayerController({
   const publishAcc = useRef(0);
   const roomRef = useRef(getPresenceRoom());
   const nearPodRef = useRef(false);
+  const nearPlanetIdRef = useRef<string | null>(null);
 
   const forward = useRef(new THREE.Vector3());
   const right = useRef(new THREE.Vector3());
@@ -488,6 +492,14 @@ export function PlayerController({
       nearPodRef.current = nearPod;
       onNearPod?.(nearPod);
     }
+
+    const nearSite = nearestPlanetSite(group.position);
+    const nearPlanetId = nearSite?.site.id ?? null;
+    if (nearPlanetId !== nearPlanetIdRef.current) {
+      nearPlanetIdRef.current = nearPlanetId;
+      onNearPlanet?.(nearSite?.site ?? null);
+    }
+
     if (
       action === "drift" &&
       rest?.kind === "pod" &&

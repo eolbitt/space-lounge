@@ -12,13 +12,13 @@ export const HEART_COOLDOWN_MS = 14000;
 export const DRIFT_SPEED = 3.4;
 export const IDLE_DRIFT = 0.55;
 
-/** Soft world bounds — wide lounge so Rest seats stay reachable */
+/** Soft world bounds — wide lounge for scattered Rest + mid-far flag planets */
 export const WORLD_BOUNDS = {
-  x: 36,
-  yMin: -6,
-  yMax: 18,
-  zMin: -32,
-  zMax: 24,
+  x: 42,
+  yMin: -10,
+  yMax: 20,
+  zMin: -56,
+  zMax: 28,
 } as const;
 
 export type AvatarState = "idle" | "move" | "rest" | "wave";

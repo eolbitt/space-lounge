@@ -7,69 +7,64 @@ import * as THREE from "three";
 import { BlackHoleBody, SunBody } from "./CelestialBodies";
 import { EarthAurora } from "./Aurora";
 
-/** [x, y, z, scale] — reachable Rest perches in the lounge volume */
+/**
+ * Asteroid Rest seats — scattered across the lounge (avoid spawn clustering).
+ * Keep ≥ ~8 units apart from main pod / each other where practical.
+ */
 export const ASTEROID_SPOTS: [number, number, number, number][] = [
-  [-8.5, -1.2, 6.5, 1.5],
-  [11.2, -0.6, 3.2, 1.05],
-  [-14.5, 1.8, -4.5, 0.9],
-  [5.5, -1.4, 10.5, 1.25],
-  [16.5, 0.8, -2.2, 0.75],
-  [-4.2, 2.4, -10.5, 0.85],
-  [2.8, -0.8, -14.5, 1.1],
-  [-18, -0.2, 2.5, 0.7],
-  [8.5, 3.2, -18, 0.95],
-  [-10, -2.5, -16, 1.15],
-  // nearer cluster around spawn / empty mid-space
-  [1.8, 0.2, 3.4, 0.95],
-  [-2.4, 1.1, 1.2, 0.85],
-  [4.6, -0.3, 0.4, 1.05],
-  [-5.2, -0.8, 8.2, 1.2],
-  [7.4, 1.6, 7.8, 0.8],
-  [-1.1, 2.8, 5.5, 0.7],
-  [9.2, -1.5, -6.5, 1.1],
-  [-12.2, 0.6, 9.5, 0.95],
-  [0.4, -1.8, -3.2, 1.15],
-  [13.5, 2.2, 5.0, 0.75],
-  [-7.8, 3.5, -1.5, 0.88],
-  [3.2, 4.0, 9.0, 0.7],
-  // denser Rest ring — fills empty mid-vista seats
-  [-0.8, 0.6, -7.5, 1.0],
-  [6.2, 0.9, -11.2, 0.9],
-  [-6.8, -0.4, -8.8, 1.05],
-  [2.0, 3.6, -5.2, 0.72],
-  [-15.5, 2.8, -9.5, 0.85],
-  [18.2, -0.5, -7.0, 0.8],
-  [-3.8, -2.2, 4.5, 1.0],
-  [10.5, 4.2, -3.5, 0.7],
-  [-9.5, 1.2, -20.5, 1.1],
-  [15.8, -1.8, 8.5, 0.95],
-  [0.2, 5.5, -12.0, 0.68],
-  [-20.5, 1.5, -6.0, 0.78],
+  [22, -1.2, 14, 1.2],
+  [-28, 2.0, 10, 1.05],
+  [30, 4.5, -8, 0.95],
+  [-24, -2.0, -18, 1.15],
+  [8, 8.5, 18, 0.85],
+  [-10, 10, -26, 1.0],
+  [26, -3.5, -22, 1.1],
+  [-32, 5.5, -4, 0.8],
+  [14, 12, -2, 0.75],
+  [-18, -4, 18, 1.2],
+  [32, 1.5, 6, 0.9],
+  [-6, 14, 8, 0.7],
+  [4, -4.5, 20, 1.05],
+  [-30, 8, -22, 0.95],
+  [18, 6, -28, 1.0],
+  [-14, -3, -28, 1.1],
+  [28, 10, 16, 0.8],
+  [-22, 12, 4, 0.85],
+  [10, -5, -10, 1.15],
+  [-4, 2, 24, 0.9],
+  [20, -2, 2, 0.75],
+  [-26, -1, -10, 1.0],
+  [6, 15, -16, 0.7],
+  [-16, 7, 20, 0.95],
+  [24, 3, -16, 0.85],
+  [-8, -5, 6, 1.05],
+  [12, 1, -22, 0.9],
+  [-20, 4, -6, 0.8],
 ];
 
-/** Extra warm rest pods (mini lounge seats) — atmosphere only */
+/** Mini lounge pods — wide scatter, not hugging the main pod */
 export const REST_PODS: [number, number, number, number][] = [
-  [4.2, 0.3, 5.8, 2.1],
-  [-11.5, 0.6, -2.5, 2.4],
-  [9.8, -0.2, -8.5, 1.9],
-  [-3.5, 1.4, -6.8, 2.0],
-  [14.2, 1.0, 2.5, 1.85],
-  // more mini pods across mid-space
-  [-1.8, 0.2, -12.5, 2.0],
-  [7.5, 2.2, -15.5, 1.75],
-  [-16.2, -0.3, 5.5, 2.15],
-  [19.5, 0.8, -4.5, 1.8],
-  [1.2, 3.0, 11.5, 1.7],
+  [20, 1.2, -20, 2.0],
+  [-26, 0.8, 12, 2.2],
+  [28, 2.5, 8, 1.85],
+  [-18, 3.0, -24, 2.1],
+  [12, 6.5, 22, 1.9],
+  [-30, 1.0, -14, 2.0],
+  [8, -2.5, -28, 1.8],
+  [-12, 8.0, 16, 1.95],
 ];
 
-/** Warm lounge pod — atmosphere / Rest perch (no landing mission). */
-export const POD_POS: [number, number, number, number] = [-6.5, 0.4, 4.2, 3.4];
+/** Main lounge pod — offset from spawn so the center stays open */
+export const POD_POS: [number, number, number, number] = [16, 0.6, -14, 3.4];
 
 export const EARTH_POS = new THREE.Vector3(2, -9, -16);
-/** Mid-ground companions — kept in Earth hemisphere (−Z), away from sun limb */
-export const MOON_POS = new THREE.Vector3(28, 8, -38);
-export const PLANET_POS = new THREE.Vector3(-32, 10, -44);
-
+/** Mid-ground companions — Earth hemisphere, flaggable */
+export const MOON_POS = new THREE.Vector3(24, 6, -30);
+export const PLANET_POS = new THREE.Vector3(-26, 8, -34);
+/** Flaggable mid-far aliens (also used as sky dressing) */
+export const ALIEN_ICE_POS = new THREE.Vector3(18, 10, -48);
+export const ALIEN_GAS_POS = new THREE.Vector3(-22, 6, -52);
+export const ALIEN_RED_POS = new THREE.Vector3(30, -2, -40);
 /**
  * Distant sky dressing — fills empty deep-space vistas.
  * Avoid the sun cone (+Y/+Z opposite Earth) so planets never stick to the sun limb.
@@ -315,13 +310,37 @@ export function LoungeObjects() {
             <meshBasicMaterial
               map={planet}
               transparent
-              depthWrite={false}
+              alphaTest={0.12}
+              depthWrite
               toneMapped={false}
               side={THREE.DoubleSide}
             />
           </mesh>
         </Billboard>
       </group>
+
+      {/* Flaggable mid-far aliens */}
+      <CelestialBillboard
+        map={ice}
+        position={[ALIEN_ICE_POS.x, ALIEN_ICE_POS.y, ALIEN_ICE_POS.z]}
+        size={10}
+        alphaTest={0.12}
+        depthWrite
+      />
+      <CelestialBillboard
+        map={gas}
+        position={[ALIEN_GAS_POS.x, ALIEN_GAS_POS.y, ALIEN_GAS_POS.z]}
+        size={12}
+        alphaTest={0.12}
+        depthWrite
+      />
+      <CelestialBillboard
+        map={red}
+        position={[ALIEN_RED_POS.x, ALIEN_RED_POS.y, ALIEN_RED_POS.z]}
+        size={7}
+        alphaTest={0.12}
+        depthWrite
+      />
 
       {/* Distant deep-space dressing */}
       <group ref={distantGroup}>
