@@ -4,6 +4,7 @@ import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Billboard, useTexture } from "@react-three/drei";
 import * as THREE from "three";
+import { BlackHoleBody, SunBody } from "./CelestialBodies";
 
 /** [x, y, z, scale] — spread in true 3D volume */
 export const ASTEROID_SPOTS: [number, number, number, number][] = [
@@ -25,9 +26,6 @@ export const POD_POS: [number, number, number, number] = [-6.5, 0.4, 4.2, 3.4];
 export const EARTH_POS = new THREE.Vector3(2, -9, -16);
 export const MOON_POS = new THREE.Vector3(22, 10, -28);
 export const PLANET_POS = new THREE.Vector3(-24, 12, -30);
-/** Warm sun — ~10× avatar scale, far atmospheric light. */
-export const SUN_POS = new THREE.Vector3(26, 16, -22);
-export const SUN_SIZE = 5.5;
 
 function CelestialBillboard({
   map,
@@ -58,23 +56,21 @@ function CelestialBillboard({
 
 /** Celestial bodies + lounge pod in a real 3D volume. */
 export function LoungeObjects() {
-  const [earth, moon, planet, asteroid, pod, sun] = useTexture([
+  const [earth, moon, planet, asteroid, pod] = useTexture([
     "/assets/objects/earth.png",
     "/assets/objects/moon.png",
     "/assets/objects/planet.png",
     "/assets/objects/asteroid.png",
     "/assets/objects/lounge-pod.png",
-    "/assets/objects/sun.png",
   ]) as THREE.Texture[];
 
-  for (const t of [earth, moon, planet, asteroid, pod, sun]) {
+  for (const t of [earth, moon, planet, asteroid, pod]) {
     t.colorSpace = THREE.SRGBColorSpace;
     t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
   }
 
   const moonGroup = useRef<THREE.Group>(null);
   const planetGroup = useRef<THREE.Group>(null);
-  const sunGroup = useRef<THREE.Group>(null);
   const asteroids = useMemo(() => ASTEROID_SPOTS, []);
 
   useFrame(({ clock }) => {
@@ -84,11 +80,6 @@ export function LoungeObjects() {
     }
     if (planetGroup.current) {
       planetGroup.current.rotation.z = Math.sin(t * 0.05) * 0.05;
-    }
-    if (sunGroup.current) {
-      sunGroup.current.position.y = SUN_POS.y + Math.sin(t * 0.12) * 0.35;
-      const pulse = 1 + Math.sin(t * 0.7) * 0.03;
-      sunGroup.current.scale.setScalar(pulse);
     }
   });
 
@@ -100,20 +91,8 @@ export function LoungeObjects() {
         size={18}
       />
 
-      <group ref={sunGroup} position={[SUN_POS.x, SUN_POS.y, SUN_POS.z]}>
-        <CelestialBillboard
-          map={sun}
-          position={[0, 0, 0]}
-          size={SUN_SIZE}
-          renderOrder={1}
-        />
-        <pointLight
-          position={[0, 0, 2]}
-          intensity={1.1}
-          distance={48}
-          color="#ffd089"
-        />
-      </group>
+      <SunBody />
+      <BlackHoleBody />
 
       <group ref={moonGroup} position={[MOON_POS.x, MOON_POS.y, MOON_POS.z]}>
         <CelestialBillboard map={moon} position={[0, 0, 0]} size={4.8} />

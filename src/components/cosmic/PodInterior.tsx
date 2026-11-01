@@ -1,8 +1,86 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
+import { Astronaut } from "./Astronaut";
+import { createMockVisitors, visitorPose } from "@/lib/presence";
+import { getPresenceRoom, type PeerPose } from "@/lib/realtime";
+import type { AvatarState } from "@/lib/constants";
+
+/** Quiet lounge seats — peers + mocks sit here while inside the pod. */
+const SEATS: [number, number, number, number][] = [
+  [-0.75, -0.55, 0.2, 1],
+  [0.85, -0.55, 0.15, -1],
+  [-1.35, -0.45, -0.55, 1],
+  [1.25, -0.45, -0.4, -1],
+  [0.1, -0.5, -0.9, 1],
+  [-0.2, -0.35, 0.85, -1],
+];
+
+function PodCompanions() {
+  const mocks = useMemo(() => createMockVisitors(6), []);
+  const [peers, setPeers] = useState<Map<string, PeerPose>>(new Map());
+  const [bodies, setBodies] = useState<
+    { id: string; state: AvatarState; facing: number; seat: number }[]
+  >([]);
+
+  useEffect(() => {
+    const room = getPresenceRoom();
+    if (!room) return;
+    return room.subscribe({
+      onPeers: (next) => setPeers(new Map(next)),
+    });
+  }, []);
+
+  const throttle = useRef(0);
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime;
+    if (t - throttle.current < 0.2) return;
+    throttle.current = t;
+    const list: {
+      id: string;
+      state: AvatarState;
+      facing: number;
+      seat: number;
+    }[] = [];
+    let seat = 0;
+    for (const peer of peers.values()) {
+      if (seat >= SEATS.length) break;
+      list.push({
+        id: peer.id,
+        state: peer.state === "wave" ? "wave" : "rest",
+        facing: SEATS[seat][3],
+        seat: seat++,
+      });
+    }
+    const budget = Math.max(0, Math.min(4, SEATS.length - list.length));
+    mocks.slice(0, budget).forEach((m) => {
+      const pose = visitorPose(m, t);
+      list.push({
+        id: m.id,
+        state: pose.state === "wave" ? "wave" : "rest",
+        facing: SEATS[seat]?.[3] ?? 1,
+        seat: seat++,
+      });
+    });
+    setBodies(list);
+  });
+
+  return (
+    <group>
+      {bodies.map((b) => {
+        const seat = SEATS[b.seat];
+        if (!seat) return null;
+        return (
+          <group key={b.id} position={[seat[0], seat[1], seat[2]]}>
+            <Astronaut state={b.state} scale={0.72} facing={seat[3]} />
+          </group>
+        );
+      })}
+    </group>
+  );
+}
 
 /** Quiet lounge interior — warm light + window to stars. No missions. */
 function InteriorScene() {
@@ -30,7 +108,7 @@ function InteriorScene() {
   return (
     <>
       <color attach="background" args={["#241810"]} />
-      <fog attach="fog" args={["#241810", 6, 14]} />
+      <fog attach="fog" args={["#241810", 8, 18]} />
       <ambientLight intensity={0.55} color="#ffd9a8" />
       <pointLight
         ref={lamp}
@@ -42,9 +120,17 @@ function InteriorScene() {
       <pointLight position={[-1.4, 0.5, -0.6]} intensity={0.4} color="#7aa0c0" />
 
       {/* Floor */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.05, 0]} receiveShadow>
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, -1.05, 0]}
+        receiveShadow
+      >
         <circleGeometry args={[3.4, 48]} />
-        <meshStandardMaterial color="#3a2c22" roughness={0.92} metalness={0.04} />
+        <meshStandardMaterial
+          color="#3a2c22"
+          roughness={0.92}
+          metalness={0.04}
+        />
       </mesh>
 
       {/* Back + side walls */}
@@ -69,7 +155,11 @@ function InteriorScene() {
       {/* Window opening toward +Z */}
       <mesh position={[0, 0.55, 2.05]}>
         <boxGeometry args={[2.7, 1.8, 0.1]} />
-        <meshStandardMaterial color="#1a1510" metalness={0.35} roughness={0.45} />
+        <meshStandardMaterial
+          color="#1a1510"
+          metalness={0.35}
+          roughness={0.45}
+        />
       </mesh>
       {/* Deep space through window */}
       <mesh position={[0, 0.55, 2.2]}>
@@ -96,13 +186,24 @@ function InteriorScene() {
         <boxGeometry args={[0.95, 0.58, 0.16]} />
         <meshStandardMaterial color="#5a4330" roughness={0.82} />
       </mesh>
+      <mesh position={[0.85, -0.7, 0.1]}>
+        <boxGeometry args={[0.9, 0.38, 0.9]} />
+        <meshStandardMaterial color="#5a4330" roughness={0.82} />
+      </mesh>
 
       {/* Soft table glow */}
       <mesh position={[0.55, -0.78, 0.35]}>
         <cylinderGeometry args={[0.35, 0.4, 0.45, 16]} />
         <meshStandardMaterial color="#4a3828" roughness={0.8} />
       </mesh>
-      <pointLight position={[0.55, -0.3, 0.35]} intensity={0.5} distance={2.5} color="#ffb060" />
+      <pointLight
+        position={[0.55, -0.3, 0.35]}
+        intensity={0.5}
+        distance={2.5}
+        color="#ffb060"
+      />
+
+      <PodCompanions />
     </>
   );
 }
@@ -119,11 +220,12 @@ export function PodInterior({ visible, onExit }: Props) {
     <div className="absolute inset-0 z-40 animate-fade-in bg-[#241810]">
       <Canvas
         className="absolute inset-0 h-full w-full"
-        camera={{ position: [0, 0.2, 1.9], fov: 60, near: 0.05, far: 40 }}
+        // Zoom out so the whole pod volume fits (was cropped at z≈1.9)
+        camera={{ position: [0, 1.15, 5.4], fov: 48, near: 0.05, far: 40 }}
         gl={{ antialias: true, alpha: false }}
         onCreated={({ gl, camera }) => {
           gl.setClearColor(new THREE.Color("#241810"));
-          camera.lookAt(0, 0.2, 0);
+          camera.lookAt(0, 0.15, -0.2);
         }}
       >
         <InteriorScene />
@@ -135,7 +237,7 @@ export function PodInterior({ visible, onExit }: Props) {
         <div>
           <p className="font-display text-lg text-[#f3e6d4]">라운지 포드</p>
           <p className="mt-1 font-sans text-xs text-[#c8b8a0]">
-            조용한 안쪽 · 말은 없습니다
+            조용한 안쪽 · 같은 우주에 있는 사람들
           </p>
         </div>
       </div>
