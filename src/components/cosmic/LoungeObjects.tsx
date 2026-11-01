@@ -132,14 +132,7 @@ function SolarPlanetSprite({
   map: THREE.Texture;
 }) {
   const ringed = Boolean(planet.ringed);
-  // Soft kind cue: rocky cooler rim, gas warmer, ice cyan
-  const kindGlow =
-    planet.kind === "gas"
-      ? "#ffe2b8"
-      : planet.kind === "ice"
-        ? "#c8e8ff"
-        : undefined;
-
+  // Planet sprite only — no aura / circular backplate discs
   return (
     <group position={[planet.pos.x, planet.pos.y, planet.pos.z]}>
       <CelestialBillboard
@@ -152,26 +145,6 @@ function SolarPlanetSprite({
         alphaTest={0.12}
         depthWrite
       />
-      {/* Subtle kind halo — readable rocky/gas/ice without duplicate sprites */}
-      {kindGlow && (
-        <Billboard follow>
-          <mesh
-            scale={[planet.size * 1.18, planet.size * (ringed ? 0.62 : 1.18), 1]}
-            renderOrder={1}
-            rotation={[0, 0, ringed ? RING_UPRIGHT_ROLL : 0]}
-          >
-            <circleGeometry args={[0.5, 28]} />
-            <meshBasicMaterial
-              color={kindGlow}
-              transparent
-              opacity={planet.kind === "ice" ? 0.16 : 0.1}
-              depthWrite={false}
-              blending={THREE.AdditiveBlending}
-              toneMapped={false}
-            />
-          </mesh>
-        </Billboard>
-      )}
     </group>
   );
 }
