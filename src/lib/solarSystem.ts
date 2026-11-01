@@ -88,15 +88,15 @@ function buildPlanets(): SolarPlanet[] {
 
   const B = BODY_SCALE;
 
-  // Order preserved Sun→Earth. Near-sun bodies pushed toward Earth
-  // (higher frac); whole band packs mid–near-Earth on the shortened corridor.
+  // Order preserved Sun→Earth. Larger |s|/|u| so bodies clear the sun
+  // disk from the lounge (angular margin past the limb).
   return [
     {
       id: "mercury",
       label: "수성",
       kind: "rocky",
       tex: "dwarf",
-      pos: at(0.55, 10, 14),
+      pos: at(0.5, 38, 42),
       size: B * 1.0,
       color: "#c4b49a",
       reach: 9,
@@ -107,7 +107,7 @@ function buildPlanets(): SolarPlanet[] {
       label: "금성",
       kind: "rocky",
       tex: "moon",
-      pos: at(0.62, -12, -13),
+      pos: at(0.57, -40, -40),
       size: B * 1.15,
       color: "#e8c878",
       reach: 10,
@@ -128,7 +128,7 @@ function buildPlanets(): SolarPlanet[] {
       label: "화성",
       kind: "rocky",
       tex: "red",
-      pos: at(0.69, 11, 12),
+      pos: at(0.64, 34, 36),
       size: B * 1.05,
       reach: 11,
       flagLift: B * 0.6,
@@ -138,7 +138,7 @@ function buildPlanets(): SolarPlanet[] {
       label: "목성",
       kind: "gas",
       tex: "gas",
-      pos: at(0.76, -13, -11),
+      pos: at(0.72, -36, -32),
       size: B * 2.0,
       reach: 14,
       flagLift: B * 1.1,
@@ -148,7 +148,7 @@ function buildPlanets(): SolarPlanet[] {
       label: "토성",
       kind: "gas",
       tex: "planet",
-      pos: at(0.82, 10, 10),
+      pos: at(0.79, 32, 30),
       size: B * 1.75,
       ringed: true,
       reach: 13,
@@ -159,7 +159,7 @@ function buildPlanets(): SolarPlanet[] {
       label: "천왕성",
       kind: "ice",
       tex: "ice",
-      pos: at(0.88, -10, -9),
+      pos: at(0.86, -28, -26),
       size: B * 1.35,
       color: "#a8e0d8",
       reach: 12,
@@ -170,7 +170,7 @@ function buildPlanets(): SolarPlanet[] {
       label: "해왕성",
       kind: "ice",
       tex: "ice",
-      pos: at(0.93, 9, 8),
+      pos: at(0.93, 24, 22),
       size: B * 1.3,
       color: "#6a8cff",
       reach: 12,
