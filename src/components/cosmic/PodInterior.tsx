@@ -216,6 +216,7 @@ function PodWalker({
   const { camera } = useThree();
   const [state, setState] = useState<AvatarState>("idle");
   const [facing, setFacing] = useState(1);
+  const facingRef = useRef(1);
   const pos = useRef(new THREE.Vector3(-0.2, FLOOR_Y, 0.8));
   const sitting = useRef(false);
   const seatId = useRef<string | null>(null);
@@ -350,13 +351,16 @@ function PodWalker({
       if (speed > 0.15) {
         setState("move");
         // Hard snap left/right — no facing lerp
-        let faceTarget = facing;
+        let faceTarget = facingRef.current;
         if (Math.abs(vel.current.z) >= Math.abs(vel.current.x) * 0.55) {
           faceTarget = vel.current.z > 0 ? -1 : 1;
         } else if (Math.abs(vel.current.x) > 0.12) {
           faceTarget = vel.current.x > 0 ? 1 : -1;
         }
-        if (faceTarget !== facing) setFacing(faceTarget);
+        if (faceTarget !== facingRef.current) {
+          facingRef.current = faceTarget;
+          setFacing(faceTarget);
+        }
       } else {
         setState("idle");
       }
