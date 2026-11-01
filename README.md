@@ -89,7 +89,7 @@ cloudflared tunnel --url http://127.0.0.1:43128
 ```
 public/assets/astronaut/   astronaut-idle|move|rest|wave.png
 public/assets/background/  space-stars.png, nebula.png
-public/assets/objects/     earth, moon, planet, asteroid, lounge-pod.png
+public/assets/objects/     earth, moon, planets, asteroid, lounge-pod, sun, blackhole, nebula…
 public/assets/audio/       deep-space-ambience.mp3 (BGM loop), sfx-wave.ogg, sfx-heart.ogg
 ```
 
