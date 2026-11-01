@@ -6,8 +6,8 @@ import * as THREE from "three";
 import { Astronaut } from "./Astronaut";
 import { WORLD_BOUNDS } from "@/lib/constants";
 
-/** Modest handful — fills space without crowding real peers. */
-const NPC_COUNT = 6;
+/** Ambient crowd — fills the lounge without crowding real peers. */
+const NPC_COUNT = 26;
 
 type NpcSeed = {
   id: string;
@@ -29,7 +29,14 @@ function clampAxis(v: number, min: number, max: number, pad = 4) {
   return THREE.MathUtils.clamp(v, min + pad, max - pad);
 }
 
+/** Deterministic pseudo-random in [0,1) from index + salt */
+function nrand(i: number, salt: number) {
+  const x = Math.sin(i * 127.1 + salt * 311.7) * 43758.5453;
+  return x - Math.floor(x);
+}
+
 function buildSeeds(): NpcSeed[] {
+  /** Hand-placed cores + generated scatter around the lounge band */
   const homes: [number, number, number][] = [
     [14, 3.5, -8],
     [-16, 5.0, 6],
@@ -37,24 +44,53 @@ function buildSeeds(): NpcSeed[] {
     [-10, 8.5, -18],
     [22, 1.2, 4],
     [-20, -1.5, -6],
+    [18, 6.5, 14],
+    [-24, 3.0, -14],
+    [6, 11.0, -6],
+    [-8, -3.5, 12],
+    [26, -1.0, -10],
+    [-14, 9.0, 8],
+    [12, 2.0, 22],
+    [-28, 4.5, 2],
+    [4, -5.0, -20],
+    [20, 8.0, -16],
+    [-6, 1.5, -24],
+    [28, 5.5, 10],
+    [-18, -4.0, 18],
+    [10, 12.0, 6],
+    [-22, 7.0, -8],
+    [16, -2.0, -4],
+    [-12, 0.5, 20],
+    [24, 10.0, -2],
+    [-4, 6.0, 14],
+    [2, 4.0, -14],
   ];
+
   return Array.from({ length: NPC_COUNT }, (_, i) => {
-    const h = homes[i]!;
+    const h = homes[i] ?? [
+      (nrand(i, 1) - 0.5) * 52,
+      (nrand(i, 2) - 0.35) * 22,
+      (nrand(i, 3) - 0.5) * 44,
+    ];
     return {
       id: `npc-${i}`,
       home: new THREE.Vector3(h[0], h[1], h[2]),
       amp: new THREE.Vector3(
-        6 + (i % 3) * 2.2,
-        2.2 + (i % 2) * 1.4,
-        7 + (i % 4) * 1.8,
+        5 + nrand(i, 4) * 5.5,
+        1.8 + nrand(i, 5) * 2.4,
+        5.5 + nrand(i, 6) * 6,
       ),
       rate: new THREE.Vector3(
-        0.11 + i * 0.017,
-        0.08 + (i % 3) * 0.02,
-        0.09 + (i % 2) * 0.025,
+        0.07 + nrand(i, 7) * 0.09,
+        0.05 + nrand(i, 8) * 0.07,
+        0.06 + nrand(i, 9) * 0.08,
       ),
-      phase: new THREE.Vector3(i * 1.1, i * 0.7 + 0.4, i * 1.4 + 0.2),
-      speed: 0.85 + (i % 3) * 0.12,
+      phase: new THREE.Vector3(
+        i * 1.07 + nrand(i, 10),
+        i * 0.71 + nrand(i, 11),
+        i * 1.31 + nrand(i, 12),
+      ),
+      speed: 0.72 + nrand(i, 13) * 0.45,
     };
   });
 }
