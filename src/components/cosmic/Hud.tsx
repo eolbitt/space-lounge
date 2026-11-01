@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { LoungeAction } from "@/lib/constants";
 import { mockOnlineCount } from "@/lib/presence";
+import { loungeAudio } from "@/lib/audio";
 
 type Props = {
   visible: boolean;
@@ -13,25 +14,27 @@ type Props = {
 const ACTIONS: { id: LoungeAction; label: string; icon: string }[] = [
   { id: "drift", label: "떠다니기", icon: "M4 13l4-4 3 3 5-6 4 4" },
   { id: "still", label: "가만히 있기", icon: "M8 12h8M12 8v8" },
-  { id: "wave", label: "인사하기", icon: "M8 14c2-4 6-4 8 0M10 10v4M14 9v5" },
-  { id: "look", label: "바라보기", icon: "M4 12s3-5 8-5 8 5 8 5-3 5-8 5-8-5-8-5zm8 2a2 2 0 100-4 2 2 0 000 4z" },
+  {
+    id: "wave",
+    label: "인사하기",
+    icon: "M8 14c2-4 6-4 8 0M10 10v4M14 9v5",
+  },
+  {
+    id: "look",
+    label: "바라보기",
+    icon: "M4 12s3-5 8-5 8 5 8 5-3 5-8 5-8-5-8-5zm8 2a2 2 0 100-4 2 2 0 000 4z",
+  },
 ];
-
-function IconButton({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-[#0a1018]/4 text-[#c8d4e0]/80">
-      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.5">
-        {children}
-      </svg>
-    </span>
-  );
-}
 
 export function Hud({ visible, action, onAction }: Props) {
   const [online, setOnline] = useState(213);
+  const [musicOn, setMusicOn] = useState(true);
+  const [sfxOn, setSfxOn] = useState(true);
 
   useEffect(() => {
     if (!visible) return;
+    setMusicOn(loungeAudio.musicOn);
+    setSfxOn(loungeAudio.sfxOn);
     const id = window.setInterval(() => setOnline(mockOnlineCount()), 5000);
     setOnline(mockOnlineCount());
     return () => window.clearInterval(id);
@@ -61,19 +64,48 @@ export function Hud({ visible, action, onAction }: Props) {
           </div>
         </div>
 
-        <div className="hidden items-center gap-2 sm:flex" aria-hidden>
-          <IconButton>
-            <path d="M9 18V6l10-2v12" strokeLinecap="round" strokeLinejoin="round" />
+        <div className="pointer-events-auto flex items-center gap-2">
+          <ToggleIcon
+            label={musicOn ? "음악 끄기" : "음악 켜기"}
+            pressed={musicOn}
+            onClick={() => {
+              const next = !musicOn;
+              setMusicOn(next);
+              loungeAudio.setMusicOn(next);
+            }}
+          >
+            <path
+              d="M9 18V6l10-2v12"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
             <circle cx="7" cy="18" r="2" />
             <circle cx="17" cy="16" r="2" />
-          </IconButton>
-          <IconButton>
-            <path d="M4 10v4M8 8v8M12 6v12M16 9v6M20 11v2" strokeLinecap="round" />
-          </IconButton>
-          <IconButton>
-            <circle cx="12" cy="12" r="3" />
-            <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4" strokeLinecap="round" />
-          </IconButton>
+            {!musicOn && (
+              <path d="M4 4l16 16" strokeLinecap="round" />
+            )}
+          </ToggleIcon>
+          <ToggleIcon
+            label={sfxOn ? "효과음 끄기" : "효과음 켜기"}
+            pressed={sfxOn}
+            onClick={() => {
+              const next = !sfxOn;
+              setSfxOn(next);
+              loungeAudio.setSfxOn(next);
+            }}
+          >
+            {sfxOn ? (
+              <path
+                d="M4 10v4M8 8v8M12 6v12M16 9v6M20 11v2"
+                strokeLinecap="round"
+              />
+            ) : (
+              <>
+                <path d="M4 10v4M8 8v8M12 6v12" strokeLinecap="round" />
+                <path d="M16 9l5 6M21 9l-5 6" strokeLinecap="round" />
+              </>
+            )}
+          </ToggleIcon>
         </div>
       </header>
 
@@ -100,7 +132,11 @@ export function Hud({ visible, action, onAction }: Props) {
                   strokeWidth="1.5"
                   aria-hidden
                 >
-                  <path d={item.icon} strokeLinecap="round" strokeLinejoin="round" />
+                  <path
+                    d={item.icon}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
                 <span className="font-sans text-[11px] tracking-wide">
                   {item.label}
@@ -120,5 +156,42 @@ export function Hud({ visible, action, onAction }: Props) {
         </div>
       </div>
     </div>
+  );
+}
+
+function ToggleIcon({
+  children,
+  label,
+  pressed,
+  onClick,
+}: {
+  children: React.ReactNode;
+  label: string;
+  pressed: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={pressed}
+      title={label}
+      onClick={onClick}
+      className={`flex h-8 w-8 items-center justify-center rounded-full border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9eb8c8] ${
+        pressed
+          ? "border-white/30 bg-[#e8eef4]/12 text-[#e8eef4]"
+          : "border-white/15 bg-[#0a1018]/4 text-[#8a9aaa]"
+      }`}
+    >
+      <svg
+        viewBox="0 0 24 24"
+        className="h-3.5 w-3.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        {children}
+      </svg>
+    </button>
   );
 }

@@ -6,10 +6,11 @@
 ## 경험
 
 - **떠다니기** / **가만히 있기** / **인사하기** / **바라보기**
-- 아바타 상태: Idle · Move · Rest(소행성 근처) · Wave
-- 모의 동시 접속 수 + 익명 방문 우주인
-
-지구가 가장 큰 중심 오브젝트이고, 달·고리 행성·소행성·별/성운은 분위기 레이어로 분리되어 있습니다.
+- 넓은 유영 범위 — 지구·달·고리행성·소행성 사이를 실제로 이동
+- 근접/접촉 시 조용한 **마음(하트) +1** (상대별 쿨다운)
+- 앰비언트 BGM + 짧은 SFX, HUD에서 음악/효과음 토글 (입장 제스처 후 재생)
+- 아바타 상태: Idle · Move · Rest · Wave
+- 모의 동시 접속 수 + 익명 방문 우주인 (이름 없음)
 
 ## 에셋
 
@@ -17,6 +18,7 @@
 public/assets/astronaut/   astronaut-idle|move|rest|wave.png
 public/assets/background/  space-stars.png, nebula.png
 public/assets/objects/     earth.png, moon.png, planet.png, asteroid.png
+public/assets/audio/       ambient-space.ogg, sfx-wave.ogg, sfx-heart.ogg
 ```
 
 ## 실행
@@ -36,6 +38,6 @@ Next.js · TypeScript · Tailwind · three.js / React Three Fiber
 ## 미룸
 
 - 실제 멀티플레이어 동기화
-- 사운드 / 설정 패널 동작
-- 라운지 포드의 따뜻한 실내 디테일
-- 물리 기반 착석·손 흔들기 애니메이션 클립
+- 라운지 포드·랜턴 디테일
+- 손 흔들기/착석 프레임 애니메이션 클립
+- 꾸미기 UI (의도적 제외)

@@ -4,8 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { Astronaut } from "./Astronaut";
-import { nearestAsteroid } from "./LoungeObjects";
-import type { AvatarState, LoungeAction } from "@/lib/constants";
+import { LOOK_AT_EARTH, nearestAsteroid } from "./LoungeObjects";
+import {
+  DRIFT_SPEED,
+  IDLE_DRIFT,
+  WORLD_BOUNDS,
+  type AvatarState,
+  type LoungeAction,
+} from "@/lib/constants";
+import { loungeAudio } from "@/lib/audio";
 
 type Props = {
   playerRef: React.RefObject<THREE.Group | null>;
@@ -21,7 +28,8 @@ export function PlayerController({ playerRef, action, entered }: Props) {
   const [avatarState, setAvatarState] = useState<AvatarState>("idle");
   const avatarStateRef = useRef<AvatarState>("idle");
   const waveUntil = useRef(0);
-  const lookTarget = useRef(new THREE.Vector3(0.6, -2.5, -6));
+  const lookTarget = useRef(LOOK_AT_EARTH.clone());
+  const camOffset = useRef(new THREE.Vector3(0, 1.6, 7.5));
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => keys.add(e.key.toLowerCase());
@@ -39,6 +47,7 @@ export function PlayerController({ playerRef, action, entered }: Props) {
       waveUntil.current = performance.now() + 2200;
       avatarStateRef.current = "wave";
       setAvatarState("wave");
+      loungeAudio.playSfx("wave");
     }
   }, [action]);
 
@@ -55,31 +64,34 @@ export function PlayerController({ playerRef, action, entered }: Props) {
     const now = performance.now();
 
     if (action === "look") {
-      const desired = new THREE.Vector3(0.2, -0.2, 4.2);
-      group.position.lerp(desired, 1 - Math.pow(0.02, dt));
+      // Drift toward a good Earth overlook — still free to leave via other actions
+      const desired = new THREE.Vector3(0.5, 0.8, 8);
+      group.position.lerp(desired, 1 - Math.pow(0.015, dt));
       velocity.current.set(0, 0, 0);
       applyState("idle");
-      lookTarget.current.set(0.6, -3.5, -6);
+      lookTarget.current.copy(LOOK_AT_EARTH);
+      camOffset.current.set(0, 1.2, 6.2);
     } else if (action === "still" || action === "wave") {
       const near = nearestAsteroid(group.position);
-      if (near && near.dist < 6) {
+      if (near && near.dist < 10) {
         const perch = new THREE.Vector3(
           near.spot[0],
-          near.spot[1] + 0.45 + near.spot[3] * 0.15,
-          near.spot[2] + 0.15,
+          near.spot[1] + 0.5 + near.spot[3] * 0.18,
+          near.spot[2] + 0.2,
         );
-        group.position.lerp(perch, 1 - Math.pow(0.03, dt));
+        group.position.lerp(perch, 1 - Math.pow(0.025, dt));
         applyState(
           now < waveUntil.current || action === "wave" ? "wave" : "rest",
         );
       } else {
-        velocity.current.lerp(new THREE.Vector3(), 0.08);
+        velocity.current.lerp(new THREE.Vector3(), 0.06);
         group.position.addScaledVector(velocity.current, dt);
         applyState(
           now < waveUntil.current || action === "wave" ? "wave" : "idle",
         );
       }
-      lookTarget.current.set(0.6, -2.8, -6);
+      lookTarget.current.copy(LOOK_AT_EARTH);
+      camOffset.current.set(0, 1.5, 7.2);
     } else {
       const wish = new THREE.Vector3();
       if (keys.has("w") || keys.has("arrowup")) wish.z -= 1;
@@ -90,43 +102,62 @@ export function PlayerController({ playerRef, action, entered }: Props) {
       if (keys.has("e")) wish.y -= 1;
 
       if (wish.lengthSq() > 0) {
-        wish.normalize().multiplyScalar(1.6);
-        velocity.current.lerp(wish, 0.1);
+        wish.normalize().multiplyScalar(DRIFT_SPEED);
+        velocity.current.lerp(wish, 0.12);
         applyState("move");
       } else {
-        const t = now * 0.0002;
+        const t = now * 0.00015;
         velocity.current.lerp(
           new THREE.Vector3(
-            Math.sin(t) * 0.22,
-            Math.sin(t * 0.7) * 0.08,
-            Math.cos(t * 0.9) * 0.18,
+            Math.sin(t) * IDLE_DRIFT * 0.45,
+            Math.sin(t * 0.7) * IDLE_DRIFT * 0.18,
+            Math.cos(t * 0.9) * IDLE_DRIFT * 0.4,
           ),
-          0.03,
+          0.025,
         );
         applyState(now < waveUntil.current ? "wave" : "idle");
       }
 
-      group.position.addScaledVector(velocity.current, dt * 2);
-      group.position.x = THREE.MathUtils.clamp(group.position.x, -7, 7);
-      group.position.y = THREE.MathUtils.clamp(group.position.y, -1.6, 2.4);
-      group.position.z = THREE.MathUtils.clamp(group.position.z, -2, 6.5);
-      lookTarget.current.set(0.6, -2.5, -6);
+      group.position.addScaledVector(velocity.current, dt);
+      // Soft elastic bounds — nudge back instead of hard wall
+      const b = WORLD_BOUNDS;
+      if (Math.abs(group.position.x) > b.x) {
+        group.position.x = THREE.MathUtils.clamp(group.position.x, -b.x, b.x);
+        velocity.current.x *= -0.25;
+      }
+      if (group.position.y < b.yMin || group.position.y > b.yMax) {
+        group.position.y = THREE.MathUtils.clamp(
+          group.position.y,
+          b.yMin,
+          b.yMax,
+        );
+        velocity.current.y *= -0.25;
+      }
+      if (group.position.z < b.zMin || group.position.z > b.zMax) {
+        group.position.z = THREE.MathUtils.clamp(
+          group.position.z,
+          b.zMin,
+          b.zMax,
+        );
+        velocity.current.z *= -0.25;
+      }
+      lookTarget.current.copy(LOOK_AT_EARTH);
+      camOffset.current.set(0, 1.6, 7.5);
     }
 
-    const camDesired = group.position
-      .clone()
-      .add(new THREE.Vector3(0, 1.1, 5.2));
-    camera.position.lerp(camDesired, 1 - Math.pow(0.025, dt));
-    const focus = group.position.clone().add(new THREE.Vector3(0, 0.35, 0));
+    const camDesired = group.position.clone().add(camOffset.current);
+    camera.position.lerp(camDesired, 1 - Math.pow(0.03, dt));
+    const focus = group.position.clone().add(new THREE.Vector3(0, 0.4, 0));
     if (action === "look") {
       camera.lookAt(lookTarget.current);
     } else {
-      camera.lookAt(focus.clone().lerp(lookTarget.current, 0.18));
+      // Subtle pan toward Earth while following the avatar
+      camera.lookAt(focus.clone().lerp(lookTarget.current, 0.12));
     }
   });
 
   return (
-    <group ref={playerRef} position={[0, 0.2, 3.5]}>
+    <group ref={playerRef} position={[0, 0.4, 5]}>
       <Astronaut self state={avatarState} scale={1.05} />
     </group>
   );

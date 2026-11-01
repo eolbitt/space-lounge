@@ -5,14 +5,20 @@ import { useFrame } from "@react-three/fiber";
 import { useTexture } from "@react-three/drei";
 import * as THREE from "three";
 
+/** Spread across a wide lounge so drift between bodies feels real. */
 export const ASTEROID_SPOTS: [number, number, number, number][] = [
   // x, y, z, scale
-  [-3.2, -0.9, 3.4, 1.35],
-  [4.5, -0.4, 1.2, 0.85],
-  [-5.5, 0.6, -1.5, 0.7],
-  [2.2, -1.1, 4.8, 1.1],
-  [6.8, 0.2, -0.5, 0.55],
+  [-8.5, -1.2, 6.5, 1.5],
+  [11.2, -0.6, 3.2, 1.05],
+  [-14.5, 1.8, -4.5, 0.9],
+  [5.5, -1.4, 10.5, 1.25],
+  [16.5, 0.8, -2.2, 0.75],
+  [-4.2, 2.4, -10.5, 0.85],
+  [2.8, -0.8, -14.5, 1.1],
+  [-18, -0.2, 2.5, 0.7],
 ];
+
+export const LOOK_AT_EARTH = new THREE.Vector3(1.5, -8, -10);
 
 function SpritePlane({
   map,
@@ -43,7 +49,7 @@ function SpritePlane({
   );
 }
 
-/** Earth as largest centerpiece; moon, ringed planet, asteroids as atmosphere. */
+/** Earth centerpiece; moon & ringed planet far enough to travel toward. */
 export function LoungeObjects() {
   const [earth, moon, planet, asteroid] = useTexture([
     "/assets/objects/earth.png",
@@ -65,7 +71,7 @@ export function LoungeObjects() {
       planetRef.current.rotation.z = Math.sin(t * 0.05) * 0.04;
     }
     if (moonRef.current) {
-      moonRef.current.position.y = 4.2 + Math.sin(t * 0.2) * 0.08;
+      moonRef.current.position.y = 9.5 + Math.sin(t * 0.18) * 0.12;
     }
   });
 
@@ -73,21 +79,23 @@ export function LoungeObjects() {
 
   return (
     <group>
-      {/* Earth — dominant lounge center, bottom of frame */}
       <SpritePlane
         map={earth}
-        position={[0.6, -6.8, -6]}
-        scale={[16, 16, 1]}
+        position={[1.5, -10.5, -10]}
+        scale={[22, 22, 1]}
         renderOrder={2}
       />
 
-      {/* Moon — upper right atmosphere */}
-      <group ref={moonRef} position={[7.5, 4.2, -12]}>
-        <SpritePlane map={moon} position={[0, 0, 0]} scale={3.4} renderOrder={2} />
+      <group ref={moonRef} position={[18, 9.5, -20]}>
+        <SpritePlane map={moon} position={[0, 0, 0]} scale={5.2} renderOrder={2} />
       </group>
 
-      {/* Ringed planet — upper left atmosphere */}
-      <mesh ref={planetRef} position={[-8.5, 4.8, -14]} scale={[4.8, 2.5, 1]} renderOrder={2}>
+      <mesh
+        ref={planetRef}
+        position={[-20, 10.5, -22]}
+        scale={[7.2, 3.7, 1]}
+        renderOrder={2}
+      >
         <planeGeometry args={[1, 1]} />
         <meshBasicMaterial
           map={planet}
@@ -118,7 +126,9 @@ export function nearestAsteroid(
   let best: { spot: [number, number, number, number]; dist: number } | null =
     null;
   for (const spot of ASTEROID_SPOTS) {
-    const d = pos.distanceTo(new THREE.Vector3(spot[0], spot[1] + 0.55, spot[2]));
+    const d = pos.distanceTo(
+      new THREE.Vector3(spot[0], spot[1] + 0.55, spot[2]),
+    );
     if (!best || d < best.dist) best = { spot, dist: d };
   }
   return best;

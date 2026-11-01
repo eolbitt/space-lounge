@@ -67,3 +67,22 @@ body {
 .animate-breath {
   animation: breath 5.5s ease-in-out infinite;
 }
+
+@keyframes heart-float {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -40%) scale(0.6);
+  }
+  18% {
+    opacity: 1;
+    transform: translate(-50%, -70%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -140%) scale(0.85);
+  }
+}
+
+.animate-heart-float {
+  animation: heart-float 1.05s ease-out both;
+}

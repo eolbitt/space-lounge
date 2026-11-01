@@ -15,11 +15,11 @@ export function LoungeBackdrop() {
 
   return (
     <group>
-      <mesh position={[0, 2, -40]} scale={[48, 27, 1]}>
+      <mesh position={[0, 4, -55]} scale={[90, 50, 1]}>
         <planeGeometry args={[1, 1]} />
         <meshBasicMaterial map={stars} depthWrite={false} toneMapped={false} />
       </mesh>
-      <mesh position={[-6, 6, -28]} scale={[36, 20, 1]}>
+      <mesh position={[-14, 10, -38]} scale={[55, 30, 1]}>
         <planeGeometry args={[1, 1]} />
         <meshBasicMaterial
           map={nebula}
@@ -29,7 +29,7 @@ export function LoungeBackdrop() {
           toneMapped={false}
         />
       </mesh>
-      <mesh position={[10, 4, -32]} scale={[22, 14, 1]} rotation={[0, 0, -0.2]}>
+      <mesh position={[18, 6, -42]} scale={[40, 24, 1]} rotation={[0, 0, -0.2]}>
         <planeGeometry args={[1, 1]} />
         <meshBasicMaterial
           map={nebula}

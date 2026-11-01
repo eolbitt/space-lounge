@@ -1,0 +1,4 @@
+Space Lounge audio assets
+Generated procedurally for this project (original synthesis).
+Free to use with the Space Lounge MVP. No third-party samples.
+Files: ambient-space.wav, sfx-wave.wav, sfx-heart.wav
