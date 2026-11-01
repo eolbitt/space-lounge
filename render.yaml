@@ -1,10 +1,13 @@
-# NOTE: Live deploy used Docker image because this Cursor origin repo is not on GitHub/GitLab.
-# Connect a GitHub repo to Render, then Blueprint-apply this file for git-based deploys.
-# Space Lounge — Render Blueprint (free tier friendly)
+# Space Lounge — Render Blueprint (free tier)
 # One web service: Next.js + same-origin presence WebSocket at /ws
 #
-# Deploy: Render Dashboard → New → Blueprint → connect this repo
+# Dashboard: New → Blueprint → select the GitHub repo that contains this file
 # Or: https://dashboard.render.com/select-repo?type=blueprint
+#
+# GitHub connect (one-time):
+#   https://dashboard.render.com/u/settings#account-security
+#   → Git Deployment Credentials → Add credential → GitHub
+#   App install: https://github.com/apps/render/installations/new
 
 services:
   - type: web
@@ -12,7 +15,8 @@ services:
     runtime: node
     plan: free
     region: oregon
-    branch: cursor/cosmic-lounge-mvp-93b8
+    # Prefer main after GitHub mirror; keep feature branch as fallback via Dashboard
+    branch: main
     buildCommand: npm ci && npm run build
     startCommand: npm run start:prod
     healthCheckPath: /
@@ -21,7 +25,3 @@ services:
         value: "20"
       - key: NODE_ENV
         value: production
-      # Leave unset for same-origin wss://<host>/ws (recommended).
-      # Override only if the WS relay is a separate service:
-      # - key: NEXT_PUBLIC_WS_URL
-      #   value: wss://your-ws-host/ws
