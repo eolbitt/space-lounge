@@ -422,7 +422,6 @@ function PodWalker({
         state={state}
         scale={AVATAR_SCALE}
         facing={facing}
-        tilt={0}
         grounded
       />
     </group>

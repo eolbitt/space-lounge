@@ -15,8 +15,17 @@ const STATE_TO_CODE: Record<AvatarState, number> = {
   move: 1,
   rest: 2,
   wave: 3,
+  up: 4,
+  down: 5,
 };
-const CODE_TO_STATE: AvatarState[] = ["idle", "move", "rest", "wave"];
+const CODE_TO_STATE: AvatarState[] = [
+  "idle",
+  "move",
+  "rest",
+  "wave",
+  "up",
+  "down",
+];
 
 export type PeerPose = {
   id: string;
@@ -330,7 +339,13 @@ export class PresenceRoom {
     state: AvatarState,
   ): number {
     // ~8–10Hz when moving nearby; back off when idle / far
-    let ms = state === "move" || state === "wave" ? 110 : 220;
+    let ms =
+      state === "move" ||
+      state === "wave" ||
+      state === "up" ||
+      state === "down"
+        ? 110
+        : 220;
     let nearest = Infinity;
     for (const p of this.peers.values()) {
       const dx = p.position[0] - position[0];

@@ -24,14 +24,28 @@ export const WORLD_BOUNDS = {
   zMax: 320,
 } as const;
 
-export type AvatarState = "idle" | "move" | "rest" | "wave";
+export type AvatarState =
+  | "idle"
+  | "move"
+  | "rest"
+  | "wave"
+  | "up"
+  | "down";
 
 export const ASTRONAUT_SRC: Record<AvatarState, string> = {
   idle: "/assets/astronaut/astronaut-idle.png",
   move: "/assets/astronaut/astronaut-move.png",
   rest: "/assets/astronaut/astronaut-rest.png",
   wave: "/assets/astronaut/astronaut-wave.png",
+  /** Climb — facing picks left/right variant in Astronaut */
+  up: "/assets/astronaut/astronaut-up-right.png",
+  down: "/assets/astronaut/astronaut-down.png",
 };
+
+export const ASTRONAUT_UP_SRC = {
+  left: "/assets/astronaut/astronaut-up-left.png",
+  right: "/assets/astronaut/astronaut-up-right.png",
+} as const;
 
 export type LoungeAction = "drift" | "still" | "wave";
 

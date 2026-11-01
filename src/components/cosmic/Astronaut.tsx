@@ -4,7 +4,12 @@ import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Billboard, useTexture } from "@react-three/drei";
 import * as THREE from "three";
-import { ASTRONAUT_SRC, AVATAR_SIZE, type AvatarState } from "@/lib/constants";
+import {
+  ASTRONAUT_SRC,
+  ASTRONAUT_UP_SRC,
+  AVATAR_SIZE,
+  type AvatarState,
+} from "@/lib/constants";
 
 type AstronautProps = {
   state?: AvatarState;
@@ -12,19 +17,19 @@ type AstronautProps = {
   scale?: number;
   /** 1 = default sprite, -1 = mirrored (strafe left). */
   facing?: number;
-  /** -1 = dive, +1 = climb (Q/E). Independent from facing. */
-  tilt?: number;
   /** Floor walk — step bob instead of float/drift */
   grounded?: boolean;
 };
 
-/** Billboard sprite — facing mirrors left/right; tilt pitches up/down. */
+/**
+ * Billboard sprite — facing mirrors left/right.
+ * Space climb/dive uses dedicated sprites (no geometric tilt).
+ */
 export function Astronaut({
   state = "idle",
   self = false,
   scale = 1,
   facing = 1,
-  tilt = 0,
   grounded = false,
 }: AstronautProps) {
   const textures = useTexture([
@@ -32,30 +37,39 @@ export function Astronaut({
     ASTRONAUT_SRC.move,
     ASTRONAUT_SRC.rest,
     ASTRONAUT_SRC.wave,
+    ASTRONAUT_UP_SRC.right,
+    ASTRONAUT_UP_SRC.left,
+    ASTRONAUT_SRC.down,
   ]) as THREE.Texture[];
 
   const map = useMemo(() => {
-    const order: AvatarState[] = ["idle", "move", "rest", "wave"];
-    const idx = order.indexOf(state);
-    const tex = textures[idx] ?? textures[0];
+    let tex: THREE.Texture;
+    if (state === "up") {
+      tex = facing < 0 ? textures[5] : textures[4];
+    } else if (state === "down") {
+      tex = textures[6];
+    } else {
+      const order: AvatarState[] = ["idle", "move", "rest", "wave"];
+      const idx = order.indexOf(state);
+      tex = textures[idx] ?? textures[0];
+    }
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
-    // Premultiply-ish: avoid dark fringe; interior is baked opaque in PNGs
     tex.premultiplyAlpha = false;
     tex.needsUpdate = true;
     return tex;
-  }, [state, textures]);
+  }, [state, facing, textures]);
 
   const bobRef = useRef<THREE.Group>(null);
-  const tiltGroup = useRef<THREE.Group>(null);
-  const tiltSmoothed = useRef(0);
+  const faceGroup = useRef<THREE.Group>(null);
   const facingSmoothed = useRef(facing < 0 ? -1 : 1);
   const stepPhase = useRef(0);
   const h = AVATAR_SIZE * scale;
   const img = map.image as { width?: number; height?: number } | undefined;
   const aspect = (img?.width || 1) / (img?.height || 1);
   const w = h * aspect;
-  const verticalMode = Math.abs(tilt) > 0.2;
+  // Up/down sprites already encode direction — don't mirror those
+  const mirrorFacing = state !== "up" && state !== "down";
 
   useFrame(({ clock }, delta) => {
     if (!bobRef.current) return;
@@ -69,7 +83,7 @@ export function Astronaut({
     const face = facingSmoothed.current;
 
     let bob = 0;
-    if (state === "rest") {
+    if (state === "rest" || state === "up" || state === "down") {
       bob = 0;
       stepPhase.current = 0;
     } else if (grounded) {
@@ -86,38 +100,27 @@ export function Astronaut({
         bob = 0;
       }
     } else {
-      // Space: stronger bob while moving, fine idle float when still
       const amp = state === "move" ? 0.048 : 0.022;
       const spd = state === "move" ? 2.4 : 0.95;
       bob = Math.sin(clock.elapsedTime * spd) * amp;
     }
     bobRef.current.position.y = bob;
 
-    const target = THREE.MathUtils.clamp(tilt, -1, 1);
-    tiltSmoothed.current = THREE.MathUtils.damp(
-      tiltSmoothed.current,
-      target,
-      7,
-      delta,
-    );
-    if (tiltGroup.current) {
-      const t = tiltSmoothed.current;
-      tiltGroup.current.rotation.x = -t * 0.85;
-      // Walk lean / space bank from facing change
+    if (faceGroup.current) {
+      // Horizontal facing only — no pitch/lean tilt in space
       const lean =
-        grounded && state === "move" ? -face * 0.06 : (1 - Math.abs(face)) * 0.12;
-      tiltGroup.current.rotation.z = lean;
-      const sy = 1 + t * 0.16;
-      const sx = face * (1 - Math.abs(t) * 0.08);
-      tiltGroup.current.scale.set(sx, sy, 1);
-      tiltGroup.current.position.y = t * 0.05;
+        grounded && state === "move" ? -face * 0.06 : 0;
+      faceGroup.current.rotation.x = 0;
+      faceGroup.current.rotation.z = lean;
+      faceGroup.current.scale.set(mirrorFacing ? face : 1, 1, 1);
+      faceGroup.current.position.y = 0;
     }
   });
 
   return (
     <group ref={bobRef} userData={{ cosmicFocus: true }}>
       <Billboard follow>
-        <group ref={tiltGroup}>
+        <group ref={faceGroup}>
           <mesh position={[0, h * 0.5, 0]} renderOrder={10}>
             <planeGeometry args={[w, h]} />
             <meshBasicMaterial
@@ -132,22 +135,6 @@ export function Astronaut({
               alphaToCoverage={false}
             />
           </mesh>
-          {/* Tiny motion cue chevron when climbing/diving */}
-          {self && verticalMode && (
-            <mesh
-              position={[0, h * (tilt > 0 ? 1.05 : -0.05), 0.02]}
-              renderOrder={11}
-            >
-              <planeGeometry args={[0.08, 0.06]} />
-              <meshBasicMaterial
-                color={tilt > 0 ? "#b8e0ff" : "#ffc8a0"}
-                transparent
-                opacity={0.55}
-                depthWrite={false}
-                toneMapped={false}
-              />
-            </mesh>
-          )}
         </group>
       </Billboard>
       {self && (

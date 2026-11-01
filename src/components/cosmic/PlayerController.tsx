@@ -66,8 +66,6 @@ export function PlayerController({
   const avatarStateRef = useRef<AvatarState>("idle");
   const [facing, setFacing] = useState(1);
   const facingRef = useRef(1);
-  const [tilt, setTilt] = useState(0);
-  const tiltRef = useRef(0);
   const waveUntil = useRef(0);
 
   const yaw = useRef(0);
@@ -340,13 +338,6 @@ export function PlayerController({
     }
   }
 
-  function applyTilt(next: number) {
-    const clamped = THREE.MathUtils.clamp(next, -1, 1);
-    if (Math.abs(tiltRef.current - clamped) < 0.03) return;
-    tiltRef.current = clamped;
-    setTilt(clamped);
-  }
-
   useFrame((_, delta) => {
     const group = playerRef.current;
     if (!group || !entered) return;
@@ -384,10 +375,8 @@ export function PlayerController({
     if (action === "wave" && !touchDriving) {
       // Soft settle into wave pose — no hard brake
       velocity.current.lerp(new THREE.Vector3(0, 0, 0), 1 - Math.pow(0.08, dt));
-      applyTilt(0);
       applyState(now < waveUntil.current ? "wave" : "idle");
     } else if (action === "still" && !touchDriving) {
-      applyTilt(0);
       velocity.current.lerp(new THREE.Vector3(0, 0, 0), 1 - Math.pow(0.12, dt));
       const near = nearestRestSpot(group.position);
       const reach = near?.kind === "pod" ? 14 : 12;
@@ -406,9 +395,12 @@ export function PlayerController({
       wish.current.set(0, 0, 0);
       let vertKey = 0;
       let latKey = 0;
-      if (keys.has("w") || keys.has("arrowup")) wish.current.add(forward.current);
-      if (keys.has("s") || keys.has("arrowdown"))
+      // W / stick-up = into look direction (away from camera). Signs flipped
+      // vs prior add(forward) which felt inverted on the live orbit cam.
+      if (keys.has("w") || keys.has("arrowup"))
         wish.current.sub(forward.current);
+      if (keys.has("s") || keys.has("arrowdown"))
+        wish.current.add(forward.current);
       if (keys.has("d") || keys.has("arrowright")) {
         wish.current.add(right.current);
         latKey += 1;
@@ -429,7 +421,8 @@ export function PlayerController({
       // Mobile virtual stick / vertical pad (WASD/QE stand-in)
       if (touchMoveActive()) {
         if (Math.abs(touchMove.y) > 0.08) {
-          wish.current.addScaledVector(forward.current, touchMove.y);
+          // Stick up (+) → same as W → −forward
+          wish.current.addScaledVector(forward.current, -touchMove.y);
         }
         if (Math.abs(touchMove.x) > 0.08) {
           wish.current.addScaledVector(right.current, touchMove.x);
@@ -449,7 +442,6 @@ export function PlayerController({
         wish.current.normalize().multiplyScalar(DRIFT_SPEED);
         // Soft accel — no snap to full speed
         velocity.current.lerp(wish.current, 1 - Math.pow(0.012, dt));
-        applyState("move");
       } else {
         // Coast then settle into idle micro-float (no hard brake)
         const t = now * 0.00011;
@@ -459,25 +451,31 @@ export function PlayerController({
           Math.cos(t * 0.91) * IDLE_DRIFT * 0.28,
         );
         velocity.current.lerp(idle, 1 - Math.pow(0.18, dt));
-        if (velocity.current.length() > 0.55) applyState("move");
-        else applyState(now < waveUntil.current ? "wave" : "idle");
       }
 
-      // Facing / tilt from actual velocity (lag behind input for natural bank)
+      // Facing from lateral velocity only — no geometric tilt.
+      // Vertical Q/E / ↑↓ pads use dedicated climb/dive sprites.
       const latV = velocity.current.dot(right.current);
-      const fwdV = velocity.current.dot(forward.current);
+      const fwdV = -velocity.current.dot(forward.current); // + = look-dir (W)
       const vertV = velocity.current.y;
-      if (
+      const verticalDominant =
         Math.abs(vertV) > 0.45 &&
-        Math.abs(vertV) >= Math.abs(latV) * 0.85
-      ) {
-        applyTilt(vertV > 0 ? 1 : -1);
-      } else {
-        applyTilt(0);
+        Math.abs(vertV) >= Math.abs(latV) * 0.85 &&
+        Math.abs(vertV) >= Math.abs(fwdV) * 0.55;
+
+      if (verticalDominant || vertKey !== 0) {
+        const climbing = vertKey !== 0 ? vertKey > 0 : vertV > 0;
+        applyState(climbing ? "up" : "down");
+        if (Math.abs(latV) > 0.2) applyFacing(latV);
+        else if (Math.abs(latKey) > 0) applyFacing(latKey);
+      } else if (velocity.current.length() > 0.55 || wish.current.lengthSq() > 1e-6) {
+        applyState("move");
         if (Math.abs(latV) > 0.2) applyFacing(latV);
         else if (Math.abs(fwdV) > 0.35 && Math.abs(latKey) > 0) {
           applyFacing(latKey);
         }
+      } else {
+        applyState(now < waveUntil.current ? "wave" : "idle");
       }
 
       group.position.addScaledVector(velocity.current, dt);
@@ -575,7 +573,6 @@ export function PlayerController({
         state={avatarState}
         scale={1.05}
         facing={facing}
-        tilt={tilt}
       />
     </group>
   );
