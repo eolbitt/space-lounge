@@ -89,6 +89,8 @@ export function PlayerController({
   const nearPlanetIdRef = useRef<string | null>(null);
 
   const forward = useRef(new THREE.Vector3());
+  /** Camera look on XZ only — W/S never pitch into world-up. */
+  const flatForward = useRef(new THREE.Vector3());
   const right = useRef(new THREE.Vector3());
   const up = useRef(new THREE.Vector3(0, 1, 0));
   const wish = useRef(new THREE.Vector3());
@@ -361,11 +363,13 @@ export function PlayerController({
 
     const cy = yaw.current;
     const cp = pitch.current;
+    // Full look (kept for camera); W/S use flat XZ only so pitch ≠ climb/dive
     forward.current.set(
       -Math.sin(cy) * Math.cos(cp),
       Math.sin(cp),
       -Math.cos(cy) * Math.cos(cp),
     );
+    flatForward.current.set(-Math.sin(cy), 0, -Math.cos(cy)).normalize();
     right.current.set(Math.cos(cy), 0, -Math.sin(cy)).normalize();
     up.current.set(0, 1, 0);
 
@@ -395,12 +399,12 @@ export function PlayerController({
       wish.current.set(0, 0, 0);
       let vertKey = 0;
       let latKey = 0;
-      // W / stick-up = into look direction (away from camera). Signs flipped
-      // vs prior add(forward) which felt inverted on the live orbit cam.
+      // W/S = horizontal look only (flatForward). Vertical is Q/E / ↑↓ pads only.
+      // flatForward = into the scene (away from orbit camera).
       if (keys.has("w") || keys.has("arrowup"))
-        wish.current.sub(forward.current);
+        wish.current.add(flatForward.current);
       if (keys.has("s") || keys.has("arrowdown"))
-        wish.current.add(forward.current);
+        wish.current.sub(flatForward.current);
       if (keys.has("d") || keys.has("arrowright")) {
         wish.current.add(right.current);
         latKey += 1;
@@ -421,8 +425,8 @@ export function PlayerController({
       // Mobile virtual stick / vertical pad (WASD/QE stand-in)
       if (touchMoveActive()) {
         if (Math.abs(touchMove.y) > 0.08) {
-          // Stick up (+) → same as W → −forward
-          wish.current.addScaledVector(forward.current, -touchMove.y);
+          // Stick up (+) → same as W → +flatForward
+          wish.current.addScaledVector(flatForward.current, touchMove.y);
         }
         if (Math.abs(touchMove.x) > 0.08) {
           wish.current.addScaledVector(right.current, touchMove.x);
@@ -454,16 +458,17 @@ export function PlayerController({
       }
 
       // Facing from lateral velocity only — no geometric tilt.
-      // Vertical Q/E / ↑↓ pads use dedicated climb/dive sprites.
+      // Vertical Q/E / ↑↓ pads use up/down state (same move art).
       const latV = velocity.current.dot(right.current);
-      const fwdV = -velocity.current.dot(forward.current); // + = look-dir (W)
+      const fwdV = velocity.current.dot(flatForward.current); // + = W / look-flat
       const vertV = velocity.current.y;
       const verticalDominant =
-        Math.abs(vertV) > 0.45 &&
-        Math.abs(vertV) >= Math.abs(latV) * 0.85 &&
-        Math.abs(vertV) >= Math.abs(fwdV) * 0.55;
+        vertKey !== 0 ||
+        (Math.abs(vertV) > 0.45 &&
+          Math.abs(vertV) >= Math.abs(latV) * 0.85 &&
+          Math.abs(vertV) >= Math.abs(fwdV) * 0.55);
 
-      if (verticalDominant || vertKey !== 0) {
+      if (verticalDominant) {
         const climbing = vertKey !== 0 ? vertKey > 0 : vertV > 0;
         applyState(climbing ? "up" : "down");
         if (Math.abs(latV) > 0.2) applyFacing(latV);
