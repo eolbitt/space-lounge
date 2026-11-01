@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# runtime planet-flag persistence (kept local / on server disk)
+/data/flags.json
+/data/flags.json.tmp
