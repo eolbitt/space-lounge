@@ -2,30 +2,50 @@ import * as THREE from "three";
 
 /**
  * Lounge-scale solar system.
- * Earth stays near the lounge; Sun opposite.
+ * Earth stays near the lounge; Sun opposite but close enough to read.
  * Mercury–Neptune (except Earth) sit BETWEEN Sun and Earth, alternating
  * above / below the corridor so nothing hides behind Earth.
  */
 
 export const EARTH_POS = new THREE.Vector3(2, -9, -16);
 
+/** Earth billboard diameter — shared scale reference. */
+export const EARTH_SIZE = 18;
 /**
- * Deep-space side opposite Earth. Distance must exceed sun radius (~108)
- * so the lounge is not inside the sphere. Keep in sync with planetFlags.
+ * Sun diameter ≈ 9× Earth. Closer sun needs a slightly smaller disk
+ * so the lounge is not swallowed by the limb.
+ */
+export const SUN_DIAMETER = EARTH_SIZE * 9;
+export const SUN_RADIUS = SUN_DIAMETER * 0.5;
+
+/**
+ * Distance from origin along the anti-Earth axis.
+ * Must exceed SUN_RADIUS so the lounge (near Earth) stays outside the sphere.
+ * Was 420 — pulled in so the whole corridor reads from the lounge.
+ */
+export const SUN_DISTANCE = 236;
+
+/**
+ * Deep-space side opposite Earth. Keep in sync with planetFlags.
  */
 export const SUN_POS = EARTH_POS.clone()
   .multiplyScalar(-1)
   .normalize()
-  .multiplyScalar(420);
+  .multiplyScalar(SUN_DISTANCE);
 
-/** Moon companion — near Earth, not one of the eight. */
-export const MOON_POS = new THREE.Vector3(8, -5.5, -12);
+/**
+ * Moon companion — clearly off Earth (not hugging the limb).
+ * ~22u from Earth center; drawn smaller so Earth stays dominant.
+ */
+export const MOON_POS = new THREE.Vector3(-11, -1.2, -32);
+/** Billboard diameter for the moon sprite */
+export const MOON_SIZE = 2.05;
 
 /**
  * Deep-space black hole — parked far off the ecliptic so it does not
  * duplicate / clutter the solar-system plane.
  */
-export const BLACKHOLE_POS = new THREE.Vector3(-95, -48, 28);
+export const BLACKHOLE_POS = new THREE.Vector3(-72, -40, 22);
 
 /** ~10× AVATAR_SIZE (0.55) — gas giants a bit larger. */
 export const BODY_SCALE = 5.5;
@@ -68,16 +88,15 @@ function buildPlanets(): SolarPlanet[] {
 
   const B = BODY_SCALE;
 
-  // Tight band BETWEEN Sun and Earth — near the corridor axis, alternate
-  // above/below with modest |u|/|s| (not screen-edge scatter). Fracs pack
-  // toward mid–near-Earth so they read in the lounge→Sun vista.
+  // Order preserved Sun→Earth. Near-sun bodies pushed toward Earth
+  // (higher frac); whole band packs mid–near-Earth on the shortened corridor.
   return [
     {
       id: "mercury",
       label: "수성",
       kind: "rocky",
       tex: "dwarf",
-      pos: at(0.40, 12, 16),
+      pos: at(0.55, 10, 14),
       size: B * 1.0,
       color: "#c4b49a",
       reach: 9,
@@ -88,7 +107,7 @@ function buildPlanets(): SolarPlanet[] {
       label: "금성",
       kind: "rocky",
       tex: "moon",
-      pos: at(0.48, -14, -15),
+      pos: at(0.62, -12, -13),
       size: B * 1.15,
       color: "#e8c878",
       reach: 10,
@@ -109,7 +128,7 @@ function buildPlanets(): SolarPlanet[] {
       label: "화성",
       kind: "rocky",
       tex: "red",
-      pos: at(0.56, 13, 14),
+      pos: at(0.69, 11, 12),
       size: B * 1.05,
       reach: 11,
       flagLift: B * 0.6,
@@ -119,7 +138,7 @@ function buildPlanets(): SolarPlanet[] {
       label: "목성",
       kind: "gas",
       tex: "gas",
-      pos: at(0.64, -15, -13),
+      pos: at(0.76, -13, -11),
       size: B * 2.0,
       reach: 14,
       flagLift: B * 1.1,
@@ -129,7 +148,7 @@ function buildPlanets(): SolarPlanet[] {
       label: "토성",
       kind: "gas",
       tex: "planet",
-      pos: at(0.72, 12, 12),
+      pos: at(0.82, 10, 10),
       size: B * 1.75,
       ringed: true,
       reach: 13,
@@ -140,7 +159,7 @@ function buildPlanets(): SolarPlanet[] {
       label: "천왕성",
       kind: "ice",
       tex: "ice",
-      pos: at(0.80, -12, -11),
+      pos: at(0.88, -10, -9),
       size: B * 1.35,
       color: "#a8e0d8",
       reach: 12,
@@ -151,7 +170,7 @@ function buildPlanets(): SolarPlanet[] {
       label: "해왕성",
       kind: "ice",
       tex: "ice",
-      pos: at(0.88, 10, 10),
+      pos: at(0.93, 9, 8),
       size: B * 1.3,
       color: "#6a8cff",
       reach: 12,

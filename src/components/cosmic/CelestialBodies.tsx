@@ -4,14 +4,23 @@ import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Billboard, useTexture } from "@react-three/drei";
 import * as THREE from "three";
-import { BLACKHOLE_POS, EARTH_POS, SUN_POS } from "@/lib/solarSystem";
+import {
+  BLACKHOLE_POS,
+  EARTH_POS,
+  EARTH_SIZE,
+  SUN_DIAMETER,
+  SUN_POS,
+  SUN_RADIUS,
+} from "@/lib/solarSystem";
 
-export { BLACKHOLE_POS, EARTH_POS, SUN_POS };
-
-/** Earth billboard diameter used as scale reference. */
-export const EARTH_SIZE = 18;
-/** Sun diameter ≈ 12× Earth — readable but distant landmark. */
-export const SUN_DIAMETER = EARTH_SIZE * 12;
+export {
+  BLACKHOLE_POS,
+  EARTH_POS,
+  EARTH_SIZE,
+  SUN_DIAMETER,
+  SUN_POS,
+  SUN_RADIUS,
+};
 
 /**
  * View-aligned matcap sampling — flame disk fills the silhouette evenly
@@ -68,7 +77,7 @@ export function SunBody() {
   map.minFilter = THREE.LinearMipmapLinearFilter;
   map.magFilter = THREE.LinearFilter;
 
-  const radius = SUN_DIAMETER * 0.5;
+  const radius = SUN_RADIUS;
   const material = useMemo(() => makeSunMatcapMaterial(map), [map]);
 
   useFrame(({ clock }) => {

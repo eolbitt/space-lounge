@@ -22,6 +22,8 @@ export function CosmicExperience() {
   const [podSitting, setPodSitting] = useState(false);
   const [transport, setTransport] = useState<SyncTransport>("offline");
   const [nearPlanet, setNearPlanet] = useState<PlanetSite | null>(null);
+  /** Click / beacon pin — keeps sun (etc.) plant panel open until dismiss or leave */
+  const [pinnedPlanet, setPinnedPlanet] = useState<PlanetSite | null>(null);
   const [flags, setFlags] = useState<Map<string, PlanetFlag>>(() => new Map());
   const { bursts, hearts, addHeart } = useHeartBursts();
 
@@ -76,6 +78,23 @@ export function CosmicExperience() {
     getPresenceRoom()?.setPlanetFlag(planetId, text);
   }, []);
 
+  const onSelectPlanet = useCallback((site: PlanetSite) => {
+    setPinnedPlanet(site);
+  }, []);
+
+  const onNearPlanetChange = useCallback((site: PlanetSite | null) => {
+    setNearPlanet(site);
+    // Clear pin only when entering a *different* planet zone.
+    // Leaving range keeps a click/beacon pin until dismiss.
+    if (site) {
+      setPinnedPlanet((prev) => (prev && prev.id !== site.id ? null : prev));
+    }
+  }, []);
+
+  const onDismissFlag = useCallback(() => {
+    setPinnedPlanet(null);
+  }, []);
+
   useEffect(() => {
     const w = window as unknown as {
       __enterPod?: () => void;
@@ -94,7 +113,10 @@ export function CosmicExperience() {
     setAction((prev) => (prev === "drift" ? prev : "drift"));
   }, []);
 
-  const planetFlag = nearPlanet ? flags.get(nearPlanet.id) ?? null : null;
+  const activePlanet = nearPlanet ?? pinnedPlanet;
+  const planetFlag = activePlanet
+    ? flags.get(activePlanet.id) ?? null
+    : null;
 
   return (
     <main className="relative h-[100dvh] w-full overflow-hidden overscroll-none bg-[#05060f] [-webkit-user-select:none] [user-select:none]">
@@ -105,7 +127,8 @@ export function CosmicExperience() {
           onHeart={onHeart}
           onPeerCount={setPeerCount}
           onNearPod={setNearPod}
-          onNearPlanet={setNearPlanet}
+          onNearPlanet={onNearPlanetChange}
+          onSelectPlanet={onSelectPlanet}
         />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center bg-[#05060f]">
@@ -125,9 +148,10 @@ export function CosmicExperience() {
         nearPod={nearPod}
         onEnterPod={enterPod}
         transport={transport}
-        nearPlanet={nearPlanet}
+        nearPlanet={activePlanet}
         planetFlag={planetFlag}
         onSetFlag={onSetFlag}
+        onDismissFlag={onDismissFlag}
       />
       <HeartOverlay
         visible={entered && !insidePod}

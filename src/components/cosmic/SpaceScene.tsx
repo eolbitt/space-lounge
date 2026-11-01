@@ -22,6 +22,7 @@ type Props = {
   onPeerCount?: (count: number) => void;
   onNearPod?: (near: boolean) => void;
   onNearPlanet?: (site: PlanetSite | null) => void;
+  onSelectPlanet?: (site: PlanetSite) => void;
 };
 
 export function SpaceScene({
@@ -31,6 +32,7 @@ export function SpaceScene({
   onPeerCount,
   onNearPod,
   onNearPlanet,
+  onSelectPlanet,
 }: Props) {
   const playerRef = useRef<THREE.Group>(null);
   const [flags, setFlags] = useState<Map<string, PlanetFlag>>(
@@ -75,7 +77,11 @@ export function SpaceScene({
 
         <LoungeBackdrop />
         <LoungeObjects />
-        <PlanetFlags flags={flags} now={now} />
+        <PlanetFlags
+          flags={flags}
+          now={now}
+          onSelectPlanet={onSelectPlanet}
+        />
 
         <PlayerController
           playerRef={playerRef}

@@ -25,6 +25,7 @@ type Props = {
   nearPlanet?: PlanetSite | null;
   planetFlag?: PlanetFlag | null;
   onSetFlag?: (planetId: string, text: string) => void;
+  onDismissFlag?: () => void;
 };
 
 const ACTIONS: { id: LoungeAction; label: string; icon: string }[] = [
@@ -48,6 +49,7 @@ export function Hud({
   nearPlanet = null,
   planetFlag = null,
   onSetFlag,
+  onDismissFlag,
 }: Props) {
   const [online, setOnline] = useState(213);
   const [musicOn, setMusicOn] = useState(true);
@@ -181,13 +183,14 @@ export function Hud({
               e.preventDefault();
               e.stopPropagation();
               setFlagClosed(true);
+              onDismissFlag?.();
             }}
             onPointerDown={(e) => {
               e.stopPropagation();
             }}
           />
           <form
-            className="pointer-events-auto absolute left-1/2 z-50 flex w-[min(92vw,22rem)] -translate-x-1/2 flex-col gap-2 rounded-xl border border-white/20 bg-[#0a121c]/92 px-3 py-3 shadow-[0_8px_28px_rgba(0,0,0,0.45)] backdrop-blur-md animate-fade-in top-[max(5.75rem,calc(env(safe-area-inset-top,0px)+4.75rem))] md:top-[min(38%,14rem)]"
+            className="pointer-events-auto absolute left-1/2 z-50 flex w-[min(92vw,22rem)] -translate-x-1/2 flex-col gap-2 rounded-xl border border-white/25 bg-[#0a121c]/95 px-3.5 py-3.5 shadow-[0_10px_32px_rgba(0,0,0,0.5)] backdrop-blur-md animate-fade-in top-[max(5.75rem,calc(env(safe-area-inset-top,0px)+4.75rem))] md:top-[min(36%,13rem)]"
             onSubmit={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -200,16 +203,31 @@ export function Hud({
             onPointerDown={(e) => e.stopPropagation()}
           >
             <div className="flex items-baseline justify-between gap-2">
-              <p className="font-sans text-xs tracking-wide text-[#e8eef4]">
+              <p className="font-display text-sm tracking-wide text-[#f2f5f8]">
                 {nearPlanet.label} 깃발
               </p>
-              <p className="font-sans text-[10px] text-[#8a9aaa]">
-                {locked && lockLeft != null
-                  ? `${lockLeft}초 잠금`
-                  : flagShown
-                    ? "덮어쓰기 가능"
-                    : `꽂은 뒤 ${FLAG_LOCK_MS / 1000}초 잠금`}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="font-sans text-[10px] text-[#8a9aaa]">
+                  {locked && lockLeft != null
+                    ? `${lockLeft}초 잠금`
+                    : flagShown
+                      ? "덮어쓰기 가능"
+                      : `꽂은 뒤 ${FLAG_LOCK_MS / 1000}초 잠금`}
+                </p>
+                <button
+                  type="button"
+                  aria-label="깃발 창 닫기"
+                  className="rounded-md border border-white/15 px-1.5 py-0.5 font-sans text-[10px] text-[#9eb0c4] transition hover:border-white/35 hover:text-[#e8eef4]"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setFlagClosed(true);
+                    onDismissFlag?.();
+                  }}
+                >
+                  닫기
+                </button>
+              </div>
             </div>
             <div className="flex gap-2">
               <input

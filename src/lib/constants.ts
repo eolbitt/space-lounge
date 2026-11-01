@@ -14,14 +14,14 @@ export const IDLE_DRIFT = 0.55;
 
 /**
  * Soft world bounds — lounge + sun approach corridor.
- * Sun sits ~420 units opposite Earth; allow flying close enough for real 3D scale.
+ * Sun sits ~236 units opposite Earth; bounds track the shorter corridor.
  */
 export const WORLD_BOUNDS = {
-  x: 110,
-  yMin: -60,
-  yMax: 250,
-  zMin: -85,
-  zMax: 340,
+  x: 90,
+  yMin: -50,
+  yMax: 180,
+  zMin: -70,
+  zMax: 220,
 } as const;
 
 export type AvatarState =

@@ -9,9 +9,11 @@ import { SpaceMotion } from "./SpaceMotion";
 import {
   EARTH_POS,
   MOON_POS,
+  MOON_SIZE,
   getSolarPlanets,
   type SolarPlanet,
 } from "@/lib/solarSystem";
+import { Constellations } from "./Constellations";
 
 export { EARTH_POS, MOON_POS };
 
@@ -210,8 +212,10 @@ export function LoungeObjects() {
       ))}
 
       <group ref={moonGroup} position={[MOON_POS.x, MOON_POS.y, MOON_POS.z]}>
-        <CelestialBillboard map={moon} position={[0, 0, 0]} size={4.2} />
+        <CelestialBillboard map={moon} position={[0, 0, 0]} size={MOON_SIZE} />
       </group>
+
+      <Constellations />
 
       {/* Sparse nebulae / distant stars — atmosphere only */}
       {SKY_DRESSING.map((b, i) => (
