@@ -37,9 +37,9 @@ export const ASTRONAUT_SRC: Record<AvatarState, string> = {
   move: "/assets/astronaut/astronaut-move.png",
   rest: "/assets/astronaut/astronaut-rest.png",
   wave: "/assets/astronaut/astronaut-wave.png",
-  /** Visual = move art; Astronaut applies a subtle vertical cue */
-  up: "/assets/astronaut/astronaut-move.png",
-  down: "/assets/astronaut/astronaut-move.png",
+  /** Dedicated vertical-travel poses (same suit style as idle/move) */
+  up: "/assets/astronaut/astronaut-up.png",
+  down: "/assets/astronaut/astronaut-down.png",
 };
 
 export type LoungeAction = "drift" | "still" | "wave";

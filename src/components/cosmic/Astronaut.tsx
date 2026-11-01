@@ -16,10 +16,18 @@ type AstronautProps = {
   grounded?: boolean;
 };
 
+const STATE_ORDER: AvatarState[] = [
+  "idle",
+  "move",
+  "rest",
+  "wave",
+  "up",
+  "down",
+];
+
 /**
- * Billboard sprite — same Space Lounge art for all poses.
- * Facing snaps hard (no scale.x lerp). Up/down reuse move art with a
- * subtle vertical squash/stretch — never the motion reference photos.
+ * Billboard sprite — same Space Lounge suit art for all poses.
+ * Vertical travel uses dedicated up/down sprites (not left/right move).
  */
 export function Astronaut({
   state = "idle",
@@ -33,14 +41,12 @@ export function Astronaut({
     ASTRONAUT_SRC.move,
     ASTRONAUT_SRC.rest,
     ASTRONAUT_SRC.wave,
+    ASTRONAUT_SRC.up,
+    ASTRONAUT_SRC.down,
   ]) as THREE.Texture[];
 
   const map = useMemo(() => {
-    // up/down share move art (consistent suit); idle/rest/wave as usual
-    const order: AvatarState[] = ["idle", "move", "rest", "wave"];
-    const visual: AvatarState =
-      state === "up" || state === "down" ? "move" : state;
-    const idx = order.indexOf(visual);
+    const idx = Math.max(0, STATE_ORDER.indexOf(state));
     const tex = textures[idx] ?? textures[0];
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
@@ -67,8 +73,7 @@ export function Astronaut({
       bob = 0;
       stepPhase.current = 0;
     } else if (state === "up" || state === "down") {
-      // Tiny vertical cue while climbing/diving — keep art upright
-      bob = state === "up" ? 0.018 : -0.012;
+      bob = state === "up" ? 0.014 : -0.01;
       stepPhase.current = 0;
     } else if (grounded) {
       if (state === "move") {
@@ -93,10 +98,8 @@ export function Astronaut({
     if (faceGroup.current) {
       faceGroup.current.rotation.x = 0;
       faceGroup.current.rotation.z = 0;
-      // Instant mirror + slight stretch for vertical travel (same sprite)
-      const sy = state === "up" ? 1.06 : state === "down" ? 0.94 : 1;
-      const sx = face * (state === "up" || state === "down" ? 0.97 : 1);
-      faceGroup.current.scale.set(sx, sy, 1);
+      // Instant mirror only — vertical art is already posed
+      faceGroup.current.scale.set(face, 1, 1);
       faceGroup.current.position.y = 0;
     }
   });
@@ -110,7 +113,8 @@ export function Astronaut({
             <meshBasicMaterial
               map={map}
               transparent
-              alphaTest={0.6}
+              // Lower than before so filled opaque visor stays solid; soft edges still cut
+              alphaTest={0.28}
               opacity={1}
               depthWrite
               depthTest
