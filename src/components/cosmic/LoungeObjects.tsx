@@ -22,7 +22,6 @@ export const ASTEROID_SPOTS: [number, number, number, number][] = [
 /** Warm lounge pod — atmosphere / Rest perch (no landing mission). */
 export const POD_POS: [number, number, number, number] = [-6.5, 0.4, 4.2, 3.4];
 
-export const LOOK_AT_EARTH = new THREE.Vector3(2, -6, -14);
 export const EARTH_POS = new THREE.Vector3(2, -9, -16);
 export const MOON_POS = new THREE.Vector3(22, 10, -28);
 export const PLANET_POS = new THREE.Vector3(-24, 12, -30);

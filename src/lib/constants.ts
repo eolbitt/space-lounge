@@ -30,7 +30,7 @@ export const ASTRONAUT_SRC: Record<AvatarState, string> = {
   wave: "/assets/astronaut/astronaut-wave.png",
 };
 
-export type LoungeAction = "drift" | "still" | "wave" | "look";
+export type LoungeAction = "drift" | "still" | "wave";
 
 export const AUDIO = {
   bgm: "/assets/audio/ambient-space.ogg",

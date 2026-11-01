@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { Astronaut } from "./Astronaut";
-import { LOOK_AT_EARTH, nearestRestSpot } from "./LoungeObjects";
+import { nearestRestSpot } from "./LoungeObjects";
 import {
   DRIFT_SPEED,
   IDLE_DRIFT,
@@ -171,6 +171,8 @@ export function PlayerController({
       waveUntil.current = performance.now() + 2200;
       avatarStateRef.current = "wave";
       setAvatarState("wave");
+      velocity.current.set(0, 0, 0);
+      keys.clear();
       loungeAudio.playSfx("wave");
     }
   }, [action]);
@@ -215,19 +217,14 @@ export function PlayerController({
     right.current.set(Math.cos(cy), 0, -Math.sin(cy)).normalize();
     up.current.set(0, 1, 0);
 
-    if (action === "look") {
-      const desired = new THREE.Vector3(0.5, 1.2, 4);
-      group.position.lerp(desired, 1 - Math.pow(0.015, dt));
+    if (action === "wave") {
+      // Hold world position — wave is motion-only, no drift/perch.
       velocity.current.set(0, 0, 0);
-      applyState("idle");
-      const toEarth = LOOK_AT_EARTH.clone().sub(group.position).normalize();
-      const targetYaw = Math.atan2(-toEarth.x, -toEarth.z);
-      const targetPitch = Math.asin(
-        THREE.MathUtils.clamp(toEarth.y, -0.95, 0.95),
-      );
-      yaw.current = THREE.MathUtils.lerp(yaw.current, targetYaw, 0.04);
-      pitch.current = THREE.MathUtils.lerp(pitch.current, targetPitch, 0.04);
-    } else if (action === "still" || action === "wave") {
+      applyTilt(0);
+      applyState(now < waveUntil.current ? "wave" : "idle");
+    } else if (action === "still") {
+      applyTilt(0);
+      velocity.current.set(0, 0, 0);
       const near = nearestRestSpot(group.position);
       const reach = near?.kind === "pod" ? 14 : 12;
       if (near && near.dist < reach) {
@@ -237,15 +234,9 @@ export function PlayerController({
           near.spot[2] + 0.25,
         );
         group.position.lerp(perch, 1 - Math.pow(0.025, dt));
-        applyState(
-          now < waveUntil.current || action === "wave" ? "wave" : "rest",
-        );
+        applyState("rest");
       } else {
-        velocity.current.lerp(new THREE.Vector3(), 0.08);
-        group.position.addScaledVector(velocity.current, dt);
-        applyState(
-          now < waveUntil.current || action === "wave" ? "wave" : "idle",
-        );
+        applyState("idle");
       }
     } else {
       wish.current.set(0, 0, 0);

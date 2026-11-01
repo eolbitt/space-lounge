@@ -24,11 +24,6 @@ const ACTIONS: { id: LoungeAction; label: string; icon: string }[] = [
     label: "인사하기",
     icon: "M8 14c2-4 6-4 8 0M10 10v4M14 9v5",
   },
-  {
-    id: "look",
-    label: "바라보기",
-    icon: "M4 12s3-5 8-5 8 5 8 5-3 5-8 5-8-5-8-5zm8 2a2 2 0 100-4 2 2 0 000 4z",
-  },
 ];
 
 export function Hud({
