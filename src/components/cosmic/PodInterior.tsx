@@ -1,9 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, ThreeEvent, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { Astronaut } from "./Astronaut";
+import { LoungeBackdrop } from "./LoungeBackdrop";
+import { EARTH_POS, LoungeObjects } from "./LoungeObjects";
+import { SUN_POS } from "./CelestialBodies";
 import { getPresenceRoom, type PeerPose } from "@/lib/realtime";
 import type { AvatarState } from "@/lib/constants";
 import { touchMove, touchMoveActive } from "@/lib/touchMove";
@@ -109,81 +112,57 @@ type WalkerProps = {
   sitting: boolean;
 };
 
-/** Slow drifting starfield + soft planet discs — sit “look out the window”. */
+/**
+ * Full-screen sit vista — same lounge backdrop + celestial assets,
+ * camera slowly drifts (no player / no furniture HUD).
+ */
 function SitSpaceView() {
-  const stars = useRef<THREE.Points>(null);
-  const planets = useRef<THREE.Group>(null);
-
-  const starGeo = useMemo(() => {
-    const n = 1400;
-    const pos = new Float32Array(n * 3);
-    for (let i = 0; i < n; i++) {
-      const r = 40 + Math.random() * 120;
-      const th = Math.random() * Math.PI * 2;
-      const ph = Math.acos(2 * Math.random() - 1);
-      pos[i * 3] = r * Math.sin(ph) * Math.cos(th);
-      pos[i * 3 + 1] = r * Math.sin(ph) * Math.sin(th);
-      pos[i * 3 + 2] = r * Math.cos(ph);
-    }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-    return g;
-  }, []);
+  const look = useRef(new THREE.Vector3());
+  const sunBias = useMemo(
+    () => EARTH_POS.clone().lerp(SUN_POS, 0.42),
+    [],
+  );
 
   useFrame(({ clock, camera }) => {
     const t = clock.elapsedTime;
-    if (stars.current) stars.current.rotation.y = t * 0.012;
-    if (planets.current) {
-      planets.current.rotation.y = t * 0.018;
-      planets.current.rotation.x = Math.sin(t * 0.07) * 0.04;
-    }
+    const yaw = t * 0.028 + 0.6;
+    const pitch = 0.1 + Math.sin(t * 0.045) * 0.06;
+    const dist = 16 + Math.sin(t * 0.033) * 2.5;
     camera.position.set(
-      Math.sin(t * 0.04) * 1.2,
-      0.35 + Math.sin(t * 0.055) * 0.25,
-      6.5,
+      Math.sin(yaw) * Math.cos(pitch) * dist + Math.sin(t * 0.02) * 1.2,
+      4.5 + Math.sin(t * 0.05) * 2.2,
+      Math.cos(yaw) * Math.cos(pitch) * dist,
     );
-    camera.lookAt(Math.sin(t * 0.03) * 2.5, Math.cos(t * 0.025) * 1.2, -20);
+    look.current.copy(sunBias);
+    look.current.x += Math.sin(t * 0.04) * 6;
+    look.current.y += Math.cos(t * 0.035) * 4;
+    camera.lookAt(look.current);
+    camera.near = 0.05;
+    camera.far = 2500;
+    camera.updateProjectionMatrix();
   });
 
   return (
-    <group>
-      <color attach="background" args={["#03060c"]} />
-      <fog attach="fog" args={["#03060c", 40, 160]} />
-      <points ref={stars} geometry={starGeo} frustumCulled={false}>
-        <pointsMaterial
-          color="#e8eef8"
-          size={0.55}
-          sizeAttenuation
-          transparent
-          opacity={0.9}
-          depthWrite={false}
-          toneMapped={false}
-        />
-      </points>
-      <group ref={planets}>
-        <mesh position={[-18, 4, -55]}>
-          <sphereGeometry args={[5.2, 32, 24]} />
-          <meshBasicMaterial color="#6a8aaa" toneMapped={false} />
-        </mesh>
-        <mesh position={[22, -6, -70]}>
-          <sphereGeometry args={[3.4, 24, 18]} />
-          <meshBasicMaterial color="#c48a6a" toneMapped={false} />
-        </mesh>
-        <mesh position={[8, 10, -90]} rotation={[0.4, 0.2, 0.1]}>
-          <torusGeometry args={[7.5, 0.35, 8, 48]} />
-          <meshBasicMaterial color="#d8c8a8" toneMapped={false} />
-        </mesh>
-        <mesh position={[8, 10, -90]}>
-          <sphereGeometry args={[4.2, 28, 20]} />
-          <meshBasicMaterial color="#b8a078" toneMapped={false} />
-        </mesh>
-        <mesh position={[-28, -12, -80]}>
-          <sphereGeometry args={[2.2, 20, 16]} />
-          <meshBasicMaterial color="#8a6aaa" toneMapped={false} />
-        </mesh>
-      </group>
-      <ambientLight intensity={0.35} />
-    </group>
+    <Suspense fallback={null}>
+      <color attach="background" args={["#05060f"]} />
+      <ambientLight intensity={0.5} color="#c8d4e8" />
+      <directionalLight position={[10, 14, 8]} intensity={0.5} color="#fff0d0" />
+      <hemisphereLight args={["#6a8498", "#0a1018", 0.35]} />
+      <LoungeBackdrop />
+      <LoungeObjects />
+      <pointLight
+        position={[2, -4, -8]}
+        intensity={1.15}
+        distance={48}
+        color="#6a9ad8"
+      />
+      <pointLight
+        position={[-8, -1, 4]}
+        intensity={0.4}
+        distance={22}
+        color="#ffb060"
+      />
+    </Suspense>
   );
 }
 
@@ -704,16 +683,16 @@ export function PodInterior({ visible, onExit, onSittingChange }: Props) {
       <Canvas
         className="absolute inset-0 h-full w-full touch-none"
         camera={{
-          position: sitting ? [0, 0.4, 6.5] : [9.2, 5.4, 7.4],
-          fov: sitting ? 55 : 42,
+          position: sitting ? [8, 5, 14] : [9.2, 5.4, 7.4],
+          fov: sitting ? 50 : 42,
           near: 0.05,
-          far: sitting ? 200 : 70,
+          far: sitting ? 2500 : 70,
         }}
-        gl={{ antialias: true, alpha: false }}
+        gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
         dpr={[1, 1.75]}
         shadows={!sitting}
         onCreated={({ gl, camera }) => {
-          gl.setClearColor(new THREE.Color(sitting ? "#03060c" : "#140e0c"));
+          gl.setClearColor(new THREE.Color(sitting ? "#05060f" : "#140e0c"));
           gl.toneMapping = THREE.ACESFilmicToneMapping;
           gl.toneMappingExposure = 1.08;
           if (!sitting) camera.lookAt(0.2, 0.85, -0.4);
