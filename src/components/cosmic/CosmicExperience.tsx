@@ -65,6 +65,19 @@ export function CosmicExperience() {
     setAction("drift");
   }, []);
 
+  useEffect(() => {
+    const w = window as unknown as {
+      __enterPod?: () => void;
+      __exitPod?: () => void;
+    };
+    w.__enterPod = enterPod;
+    w.__exitPod = exitPod;
+    return () => {
+      delete w.__enterPod;
+      delete w.__exitPod;
+    };
+  }, [enterPod, exitPod]);
+
   /** Stick/vertical pad → ensure drift mode so movement isn't blocked by Rest/Wave */
   const onTouchMoveIntent = useCallback(() => {
     setAction((prev) => (prev === "drift" ? prev : "drift"));

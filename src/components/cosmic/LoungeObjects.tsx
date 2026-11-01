@@ -5,6 +5,7 @@ import { useFrame } from "@react-three/fiber";
 import { Billboard, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import { BlackHoleBody, SunBody } from "./CelestialBodies";
+import { EarthAurora } from "./Aurora";
 
 /** [x, y, z, scale] — reachable Rest perches in the lounge volume */
 export const ASTEROID_SPOTS: [number, number, number, number][] = [
@@ -292,6 +293,9 @@ export function LoungeObjects() {
         map={earth}
         position={[EARTH_POS.x, EARTH_POS.y, EARTH_POS.z]}
         size={18}
+      />
+      <EarthAurora
+        position={[EARTH_POS.x, EARTH_POS.y, EARTH_POS.z]}
       />
 
       <SunBody />
