@@ -6,6 +6,8 @@ import {
 } from "./planetFlags";
 
 export const ROOM_CHANNEL = "space-lounge-presence-v1";
+/** Browser-side durable cache — survives empty server sync / ephemeral Render disk. */
+const FLAGS_STORAGE_KEY = "space-lounge-flags-v1";
 
 /** Max peers drawn as astronauts; full count still reported to HUD. */
 export const RENDER_NEAR_PEERS = 36;
@@ -160,6 +162,7 @@ export class PresenceRoom {
   constructor() {
     this.selfId = getOrCreateSelfId();
     this.wsUrl = resolveWsUrl();
+    this.hydrateFlagsFromStorage();
 
     if (typeof window !== "undefined" && typeof BroadcastChannel !== "undefined") {
       this.channel = new BroadcastChannel(ROOM_CHANNEL);
@@ -304,6 +307,7 @@ export class PresenceRoom {
     );
     if (!flag) return null;
     this.flags.set(planetId, flag);
+    this.persistFlagsToStorage();
     this.emitFlags();
     this.post({ type: "flag_set", flag });
     return flag;
@@ -374,6 +378,8 @@ export class PresenceRoom {
         this.setTransport("websocket");
         this.post({ type: "who", id: this.selfId });
         if (this.lastSelf) this.post(encodePresence("h", this.lastSelf));
+        // After handshake sync, re-seed server from local cache (ephemeral disk).
+        window.setTimeout(() => this.republishLocalFlags(), 350);
       };
       ws.onmessage = (ev) => {
         try {
@@ -448,13 +454,21 @@ export class PresenceRoom {
       return;
     }
     if (kind === "flags_sync") {
-      const next = new Map<string, PlanetFlag>();
+      // Upsert only — never drop planted text just because the snapshot omitted it
+      // (empty server after restart used to wipe clients via full Map replace).
+      let changed = false;
       for (const f of msg.flags || []) {
-        if (f?.planetId && f.text) next.set(f.planetId, f);
+        if (!f?.planetId || !f.text) continue;
+        const prev = this.flags.get(f.planetId);
+        if (!prev || f.updatedAt >= prev.updatedAt) {
+          this.flags.set(f.planetId, f);
+          changed = true;
+        }
       }
-      this.flags = next;
-      settleFlags(this.flags);
-      this.emitFlags();
+      if (settleFlags(this.flags) || changed) {
+        this.persistFlagsToStorage();
+        this.emitFlags();
+      }
       return;
     }
     if (kind === "flag_set") {
@@ -468,7 +482,9 @@ export class PresenceRoom {
       ) {
         return;
       }
+      if (prev && prev.updatedAt > flag.updatedAt) return;
       this.flags.set(flag.planetId, flag);
+      this.persistFlagsToStorage();
       this.emitFlags();
       return;
     }
@@ -497,6 +513,50 @@ export class PresenceRoom {
     for (const l of this.listeners) l.onFlags?.(snap);
   }
 
+  private hydrateFlagsFromStorage() {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(FLAGS_STORAGE_KEY);
+      if (!raw) return;
+      const list = JSON.parse(raw) as PlanetFlag[];
+      if (!Array.isArray(list)) return;
+      for (const f of list) {
+        if (!f?.planetId || !f.text) continue;
+        this.flags.set(f.planetId, {
+          planetId: String(f.planetId),
+          text: String(f.text),
+          authorId: String(f.authorId || "local"),
+          updatedAt: Number(f.updatedAt) || Date.now(),
+          expiresAt: Number(f.expiresAt) || Date.now(),
+          stable: Boolean(f.stable),
+        });
+      }
+      settleFlags(this.flags);
+    } catch {
+      /* ignore corrupt cache */
+    }
+  }
+
+  private persistFlagsToStorage() {
+    if (typeof window === "undefined") return;
+    try {
+      const list = Array.from(this.flags.values()).filter((f) => f?.text);
+      window.localStorage.setItem(FLAGS_STORAGE_KEY, JSON.stringify(list));
+    } catch {
+      /* quota / private mode */
+    }
+  }
+
+  /** Push local planted flags back to the relay (current value only per planet). */
+  private republishLocalFlags() {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return;
+    settleFlags(this.flags);
+    for (const flag of this.flags.values()) {
+      if (!flag?.text) continue;
+      this.post({ type: "flag_set", flag });
+    }
+  }
+
   private prune() {
     const now = Date.now();
     let changed = false;
@@ -507,7 +567,10 @@ export class PresenceRoom {
       }
     }
     if (changed) this.emitPeers();
-    if (settleFlags(this.flags, now)) this.emitFlags();
+    if (settleFlags(this.flags, now)) {
+      this.persistFlagsToStorage();
+      this.emitFlags();
+    }
   }
 }
 

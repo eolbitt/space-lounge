@@ -67,14 +67,14 @@ wss.on("connection", (socket) => {
       return;
     }
 
-    // Compact ("w"/"h") + legacy who/hello — sync flags then fan-out
-    if (
-      msg?.type === "who" ||
-      msg?.type === "hello" ||
-      msg?.type === "w" ||
-      msg?.type === "h"
-    ) {
+    // Handshake only — never re-push flags on presence `h` heartbeats.
+    // (Empty store + per-tick flags_sync was wiping client-planted text.)
+    if (msg?.type === "who" || msg?.type === "w") {
       send(socket, flagsSyncPayload());
+      broadcast(raw, socket);
+      return;
+    }
+    if (msg?.type === "hello" || msg?.type === "h") {
       broadcast(raw, socket);
       return;
     }

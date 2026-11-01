@@ -119,10 +119,14 @@ export function settleFlags(now = Date.now()) {
   }
 }
 
-/** @returns {PlanetFlag[]} */
+/**
+ * All current flags (one per planetId). Lock expiry only flips `stable` —
+ * entries are never omitted because the lock window ended.
+ * @returns {PlanetFlag[]}
+ */
 export function listFlags(now = Date.now()) {
   settleFlags(now);
-  return Array.from(flags.values());
+  return Array.from(flags.values()).filter((f) => Boolean(f?.text));
 }
 
 function isLocked(flag, now = Date.now()) {

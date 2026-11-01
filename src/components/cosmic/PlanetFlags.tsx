@@ -47,34 +47,33 @@ export function PlanetFlags({ flags, now: _now }: Props) {
               <meshBasicMaterial
                 color={show ? "#e8f4ff" : "#9aa8b8"}
                 transparent
-                opacity={show ? 0.92 : 0.35}
+                opacity={show ? 0.92 : 0.28}
                 side={2}
                 toneMapped={false}
                 depthWrite={false}
               />
             </mesh>
-            <Html
-              center
-              distanceFactor={isSun ? 110 : 18}
-              style={{ pointerEvents: "none", userSelect: "none" }}
-              zIndexRange={[20, 0]}
-            >
-              <div
-                className="whitespace-nowrap rounded-md border border-white/25 bg-[#0a1018]/75 px-2 py-1 font-sans text-[11px] tracking-wide text-[#f2f5f8] shadow-[0_2px_12px_rgba(0,0,0,0.45)] backdrop-blur-sm"
-                style={{
-                  minWidth: isSun ? "4.5rem" : "2.5rem",
-                  textAlign: "center",
-                  fontSize: isSun ? 20 : 11,
-                  padding: isSun ? "0.4rem 0.8rem" : undefined,
-                }}
+            {/* Only planted text — never fall back to planet name (looked like a reset). */}
+            {show && flag?.text ? (
+              <Html
+                center
+                distanceFactor={isSun ? 110 : 18}
+                style={{ pointerEvents: "none", userSelect: "none" }}
+                zIndexRange={[20, 0]}
               >
-                {show && flag?.text ? (
+                <div
+                  className="whitespace-nowrap rounded-md border border-white/25 bg-[#0a1018]/75 px-2 py-1 font-sans text-[11px] tracking-wide text-[#f2f5f8] shadow-[0_2px_12px_rgba(0,0,0,0.45)] backdrop-blur-sm"
+                  style={{
+                    minWidth: isSun ? "4.5rem" : "2.5rem",
+                    textAlign: "center",
+                    fontSize: isSun ? 20 : 11,
+                    padding: isSun ? "0.4rem 0.8rem" : undefined,
+                  }}
+                >
                   <span>{flag.text}</span>
-                ) : (
-                  <span className="text-[#8a9aaa]">{site.label}</span>
-                )}
-              </div>
-            </Html>
+                </div>
+              </Html>
+            ) : null}
           </group>
         );
       })}
