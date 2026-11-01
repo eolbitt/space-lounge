@@ -71,11 +71,11 @@ export function TouchControls({ visible, onMoveIntent, walkOnly = false }: Props
       className={`pointer-events-none absolute inset-0 block md:hidden ${walkOnly ? "z-50" : "z-40"}`}
       aria-hidden={false}
     >
-      {/* Left: virtual stick (WASD) */}
+      {/* Left: virtual stick — above bottom action row (떠다니기 등) + home indicator */}
       <div
         ref={stickRef}
         data-testid="touch-stick"
-        className="pointer-events-auto absolute bottom-28 left-4 touch-none select-none"
+        className="pointer-events-auto absolute left-3 touch-none select-none bottom-[calc(12.25rem+env(safe-area-inset-bottom,0px))]"
         style={{ width: 112, height: 112 }}
         onPointerDown={(e) => {
           e.preventDefault();
@@ -121,11 +121,11 @@ export function TouchControls({ visible, onMoveIntent, walkOnly = false }: Props
         </span>
       </div>
 
-      {/* Right: vertical pad (Q/E) — hidden in pod walk mode */}
+      {/* Right: vertical pad (Q/E) — match stick clearance; hidden in pod walk mode */}
       {!walkOnly && (
         <div
           data-testid="touch-vertical"
-          className="pointer-events-auto absolute bottom-28 right-4 flex touch-none select-none flex-col gap-2"
+          className="pointer-events-auto absolute right-3 flex touch-none select-none flex-col gap-2 bottom-[calc(12.25rem+env(safe-area-inset-bottom,0px))]"
         >
           <VertButton
             label="상승"

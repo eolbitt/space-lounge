@@ -91,7 +91,7 @@ export function Hud({
   if (!visible) return null;
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-30 flex flex-col justify-between p-4 sm:p-5">
+    <div className="pointer-events-none absolute inset-0 z-30 flex flex-col justify-between p-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-[max(1rem,env(safe-area-inset-top,0px))] sm:p-5 sm:pb-5 sm:pt-5">
       <header className="flex items-start justify-between gap-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
           <div className="flex items-center gap-2">
@@ -170,25 +170,24 @@ export function Hud({
         </div>
       </header>
 
-      <div className="flex flex-col items-center gap-3">
-        {nearPlanet && onSetFlag && !flagClosed && (
-          <>
-            {/* Backdrop — tap/click outside closes the editor */}
-            <button
-              type="button"
-              aria-label="깃발 창 닫기"
-              className="pointer-events-auto absolute inset-0 z-40 cursor-default bg-transparent"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setFlagClosed(true);
-              }}
-              onPointerDown={(e) => {
-                e.stopPropagation();
-              }}
-            />
+      {/* Flag editor — upper band on mobile so keyboard / bottom actions never cover it */}
+      {nearPlanet && onSetFlag && !flagClosed && (
+        <>
+          <button
+            type="button"
+            aria-label="깃발 창 닫기"
+            className="pointer-events-auto absolute inset-0 z-40 cursor-default bg-transparent"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setFlagClosed(true);
+            }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+            }}
+          />
           <form
-            className="pointer-events-auto relative z-50 flex w-[min(92vw,22rem)] flex-col gap-2 rounded-xl border border-white/20 bg-[#0a121c]/88 px-3 py-3 shadow-[0_8px_28px_rgba(0,0,0,0.45)] backdrop-blur-md animate-fade-in"
+            className="pointer-events-auto absolute left-1/2 z-50 flex w-[min(92vw,22rem)] -translate-x-1/2 flex-col gap-2 rounded-xl border border-white/20 bg-[#0a121c]/92 px-3 py-3 shadow-[0_8px_28px_rgba(0,0,0,0.45)] backdrop-blur-md animate-fade-in top-[max(5.75rem,calc(env(safe-area-inset-top,0px)+4.75rem))] md:top-[min(38%,14rem)]"
             onSubmit={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -244,8 +243,10 @@ export function Hud({
               </p>
             )}
           </form>
-          </>
-        )}
+        </>
+      )}
+
+      <div className="flex flex-col items-center gap-3">
         {nearPod && onEnterPod && (
           <button
             type="button"
