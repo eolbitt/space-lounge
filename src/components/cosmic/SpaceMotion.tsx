@@ -20,47 +20,28 @@ function seeded(i: number, salt: number) {
   return x - Math.floor(x);
 }
 
-/** Small drifting rock belt + comets + occasional meteor streaks. */
+/**
+ * Comets + meteors only.
+ * The Sun↔Earth rock belt was removed — it sat on the sun disk from the lounge.
+ */
 export function SpaceMotion() {
-  const asteroidMap = useTexture("/assets/objects/asteroid.png") as THREE.Texture;
+  const asteroidMap = useTexture(
+    "/assets/objects/asteroid.png",
+  ) as THREE.Texture;
   asteroidMap.colorSpace = THREE.SRGBColorSpace;
 
-  const belt = useMemo(() => {
-    const sunToEarth = EARTH_POS.clone().sub(SUN_POS);
-    const dist = sunToEarth.length();
-    const forward = sunToEarth.clone().normalize();
+  const sunToEarth = useMemo(() => {
+    const forward = EARTH_POS.clone().sub(SUN_POS).normalize();
     const side = new THREE.Vector3()
       .crossVectors(forward, new THREE.Vector3(0, 1, 0))
       .normalize();
     const up = new THREE.Vector3().crossVectors(side, forward).normalize();
-    // Sparse belt between Mars–Jupiter band (~0.55–0.7 along Sun→Earth + beyond)
-    const items: {
-      base: THREE.Vector3;
-      size: number;
-      spin: number;
-      wobble: number;
-      drift: number;
-    }[] = [];
-    for (let i = 0; i < 28; i++) {
-      const along = 0.52 + seeded(i, 1) * 0.22;
-      const radial = (seeded(i, 2) - 0.5) * 48;
-      const elev = (seeded(i, 3) - 0.5) * 22;
-      const base = SUN_POS.clone()
-        .add(forward.clone().multiplyScalar(dist * along))
-        .add(side.clone().multiplyScalar(radial))
-        .add(up.clone().multiplyScalar(elev));
-      items.push({
-        base,
-        size: 0.28 + seeded(i, 4) * 0.55,
-        spin: 0.15 + seeded(i, 5) * 0.4,
-        wobble: 0.4 + seeded(i, 6) * 1.2,
-        drift: 0.08 + seeded(i, 7) * 0.2,
-      });
-    }
-    return items;
+    return { forward, side, up };
   }, []);
 
   const comets = useMemo(() => {
+    const { side, up } = sunToEarth;
+    // Orbit centers parked on the flanks — never on the Earth→Sun axis
     const list: {
       center: THREE.Vector3;
       a: number;
@@ -70,27 +51,29 @@ export function SpaceMotion() {
       tilt: number;
       size: number;
     }[] = [];
-    for (let i = 0; i < 3; i++) {
-      const ang = (i / 3) * Math.PI * 2 + 0.4;
-      const center = SUN_POS.clone().add(
-        new THREE.Vector3(
-          Math.cos(ang) * 40,
-          18 + i * 12,
-          Math.sin(ang) * 40,
-        ),
-      );
+    const flank: [number, number][] = [
+      [72, 28],
+      [-78, 18],
+      [55, -42],
+    ];
+    for (let i = 0; i < flank.length; i++) {
+      const [s, u] = flank[i];
+      const center = SUN_POS.clone()
+        .add(side.clone().multiplyScalar(s))
+        .add(up.clone().multiplyScalar(u))
+        .add(sunToEarth.forward.clone().multiplyScalar(40 + i * 25));
       list.push({
         center,
-        a: 160 + i * 55,
-        b: 70 + i * 25,
-        speed: 0.05 + i * 0.012,
+        a: 55 + i * 18,
+        b: 32 + i * 10,
+        speed: 0.045 + i * 0.012,
         phase: i * 2.1,
-        tilt: 0.35 + i * 0.2,
-        size: 0.55 + i * 0.15,
+        tilt: 0.4 + i * 0.15,
+        size: 0.5 + i * 0.12,
       });
     }
     return list;
-  }, []);
+  }, [sunToEarth]);
 
   const meteors = useMemo(() => {
     const list: Streak[] = [];
@@ -117,7 +100,6 @@ export function SpaceMotion() {
     return list;
   }, []);
 
-  const beltGroup = useRef<THREE.Group>(null);
   const cometGroup = useRef<THREE.Group>(null);
   const meteorGroup = useRef<THREE.Group>(null);
   const cometTailMats = useRef<THREE.MeshBasicMaterial[]>([]);
@@ -125,19 +107,6 @@ export function SpaceMotion() {
 
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
-    if (beltGroup.current) {
-      beltGroup.current.children.forEach((child, i) => {
-        const item = belt[i];
-        if (!item) return;
-        const ang = t * item.drift + i;
-        child.position.set(
-          item.base.x + Math.cos(ang) * item.wobble,
-          item.base.y + Math.sin(ang * 0.7) * item.wobble * 0.45,
-          item.base.z + Math.sin(ang * 0.9) * item.wobble,
-        );
-        child.rotation.z = t * item.spin;
-      });
-    }
     if (cometGroup.current) {
       cometGroup.current.children.forEach((child, i) => {
         const c = comets[i];
@@ -146,7 +115,6 @@ export function SpaceMotion() {
         const x = Math.cos(u) * c.a;
         const z = Math.sin(u) * c.b;
         const y = Math.sin(u * 0.5) * 12;
-        // Tilted ellipse around sun-ish center
         child.position.set(
           c.center.x + x,
           c.center.y + y * Math.cos(c.tilt) + z * Math.sin(c.tilt) * 0.2,
@@ -168,7 +136,6 @@ export function SpaceMotion() {
         const u = (local * cycle) / m.life;
         const traveled = u * m.speed * m.life;
         child.position.copy(m.origin).addScaledVector(m.dir, traveled);
-        // Aim streak along flight
         const look = m.origin.clone().addScaledVector(m.dir, traveled + 1);
         child.lookAt(look);
         const mat = meteorMats.current[i];
@@ -181,23 +148,6 @@ export function SpaceMotion() {
 
   return (
     <group>
-      <group ref={beltGroup}>
-        {belt.map((item, i) => (
-          <Billboard key={`belt-${i}`} follow position={item.base.toArray()}>
-            <mesh scale={[item.size, item.size, 1]} renderOrder={3}>
-              <planeGeometry args={[1, 1]} />
-              <meshBasicMaterial
-                map={asteroidMap}
-                transparent
-                alphaTest={0.5}
-                depthWrite
-                toneMapped={false}
-              />
-            </mesh>
-          </Billboard>
-        ))}
-      </group>
-
       <group ref={cometGroup}>
         {comets.map((c, i) => (
           <group key={`comet-${i}`} position={c.center.toArray()}>

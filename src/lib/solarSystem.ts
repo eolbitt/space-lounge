@@ -77,7 +77,8 @@ function buildPlanets(): SolarPlanet[] {
       label: "수성",
       kind: "rocky",
       tex: "dwarf",
-      pos: at(0.32, 8, 5),
+      // Wide lateral offset — never sit on the Earth→Sun sightline / sun disk
+      pos: at(0.34, 78, 30),
       size: 3.2,
       color: "#c4b49a",
       reach: 9,
@@ -88,7 +89,7 @@ function buildPlanets(): SolarPlanet[] {
       label: "금성",
       kind: "rocky",
       tex: "moon",
-      pos: at(0.52, -12, -4),
+      pos: at(0.55, -68, -20),
       size: 5.4,
       color: "#e8c878",
       reach: 10,
