@@ -1,4 +1,5 @@
 Space Lounge audio assets
-Generated procedurally for this project (original synthesis).
-Free to use with the Space Lounge MVP. No third-party samples.
-Files: ambient-space.wav, sfx-wave.wav, sfx-heart.wav
+
+- deep-space-ambience.mp3 — deep space travel ambience loop (fronbondi_skegs SFX), used as BGM
+- sfx-wave.ogg / sfx-heart.ogg — original short SFX for this MVP
+- ambient-space.ogg — previous synthetic ambient (unused; kept for reference)
