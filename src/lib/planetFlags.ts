@@ -52,28 +52,20 @@ export const SUN_FLAG_POS: [number, number, number] = [
   SUN_POS.z,
 ];
 
-/** Lounge-side plant beacon — near spawn, toward the sun corridor */
-function sunLoungeInteract(): [number, number, number] {
-  const toSun = SUN_POS.clone().sub(EARTH_POS).normalize();
-  const side = new THREE.Vector3()
-    .crossVectors(toSun, new THREE.Vector3(0, 1, 0))
-    .normalize();
-  const up = new THREE.Vector3().crossVectors(side, toSun).normalize();
-  const p = EARTH_POS.clone()
-    .add(toSun.multiplyScalar(22))
-    .add(up.multiplyScalar(9));
-  return [p.x, p.y, p.z];
-}
-
-/** Just outside the sun disk, facing the lounge (within WORLD_BOUNDS) */
+/**
+ * Plant zone just outside the sun disk, facing the lounge.
+ * Must NOT sit near Earth/spawn — sun modal only when actually approaching the sun.
+ */
 function sunFaceApproach(): [number, number, number] {
   const toEarth = EARTH_POS.clone().sub(SUN_POS).normalize();
-  const p = SUN_POS.clone().add(toEarth.multiplyScalar(SUN_RADIUS + 28));
+  // Closer to the limb so Earth-side lounge never falls inside reach
+  const p = SUN_POS.clone().add(toEarth.multiplyScalar(SUN_RADIUS + 22));
   return [p.x, p.y, p.z];
 }
 
-export const SUN_INTERACT_POS: [number, number, number] = sunLoungeInteract();
-export const SUN_APPROACH_POS: [number, number, number] = sunFaceApproach();
+/** @deprecated alias — sun interact is the sun-face approach only */
+export const SUN_INTERACT_POS: [number, number, number] = sunFaceApproach();
+export const SUN_APPROACH_POS: [number, number, number] = SUN_INTERACT_POS;
 
 const solar = getSolarPlanets();
 
@@ -100,10 +92,13 @@ export const PLANET_SITES: PlanetSite[] = [
     id: "sun",
     label: "태양",
     pos: SUN_FLAG_POS,
+    /** Only the sun-face zone — never a lounge/Earth proxy */
     interactPos: SUN_INTERACT_POS,
-    approachPos: [SUN_APPROACH_POS],
-    /** Generous so the plant panel opens reliably at beacon or sun face */
-    reach: 36,
+    /**
+     * Tight enough that spawn/Earth (~200u away) never triggers,
+     * loose enough to open once you reach the sun limb.
+     */
+    reach: 48,
     /** Tip just above sun surface */
     flagLift: SUN_RADIUS + 18,
   },
