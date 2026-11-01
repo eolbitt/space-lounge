@@ -12,6 +12,8 @@ type AstronautProps = {
   scale?: number;
   /** 1 = default sprite, -1 = mirrored (strafe left / move left of camera). */
   facing?: number;
+  /** -1 = diving down, +1 = climbing up (Q/E vertical intent). */
+  tilt?: number;
 };
 
 /** Billboard sprite in 3D space — never baked into the backdrop. */
@@ -20,6 +22,7 @@ export function Astronaut({
   self = false,
   scale = 1,
   facing = 1,
+  tilt = 0,
 }: AstronautProps) {
   const textures = useTexture([
     ASTRONAUT_SRC.idle,
@@ -39,13 +42,15 @@ export function Astronaut({
   }, [state, textures]);
 
   const bobRef = useRef<THREE.Group>(null);
+  const meshRef = useRef<THREE.Mesh>(null);
+  const tiltSmoothed = useRef(0);
   const h = AVATAR_SIZE * scale;
   const img = map.image as { width?: number; height?: number } | undefined;
   const aspect = (img?.width || 1) / (img?.height || 1);
   const w = h * aspect;
   const face = facing < 0 ? -1 : 1;
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock }, delta) => {
     if (!bobRef.current) return;
     const bob =
       state === "rest"
@@ -53,12 +58,26 @@ export function Astronaut({
         : Math.sin(clock.elapsedTime * (state === "move" ? 2.2 : 1.1)) *
           (state === "move" ? 0.045 : 0.028);
     bobRef.current.position.y = bob;
+
+    const target = THREE.MathUtils.clamp(tilt, -1, 1);
+    tiltSmoothed.current = THREE.MathUtils.damp(
+      tiltSmoothed.current,
+      target,
+      8,
+      delta,
+    );
+    if (meshRef.current) {
+      // Pitch in billboard space: climb → nose up, dive → nose down
+      meshRef.current.rotation.x = -tiltSmoothed.current * 0.55;
+      meshRef.current.rotation.z = tiltSmoothed.current * 0.12 * face;
+    }
   });
 
   return (
     <group ref={bobRef}>
       <Billboard follow>
         <mesh
+          ref={meshRef}
           position={[0, h * 0.5, 0]}
           scale={[face, 1, 1]}
           renderOrder={10}

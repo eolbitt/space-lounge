@@ -53,6 +53,8 @@ export function PlayerController({
   const avatarStateRef = useRef<AvatarState>("idle");
   const [facing, setFacing] = useState(1);
   const facingRef = useRef(1);
+  const [tilt, setTilt] = useState(0);
+  const tiltRef = useRef(0);
   const waveUntil = useRef(0);
 
   const yaw = useRef(0);
@@ -188,6 +190,13 @@ export function PlayerController({
     }
   }
 
+  function applyTilt(next: number) {
+    const clamped = THREE.MathUtils.clamp(next, -1, 1);
+    if (Math.abs(tiltRef.current - clamped) < 0.04) return;
+    tiltRef.current = clamped;
+    setTilt(clamped);
+  }
+
   useFrame((_, delta) => {
     const group = playerRef.current;
     if (!group || !entered) return;
@@ -263,6 +272,9 @@ export function PlayerController({
         // Pure W/S keeps last facing so the sprite doesn't flicker.
         const lateral = wish.current.dot(right.current);
         if (Math.abs(lateral) > 0.08) applyFacing(lateral);
+        // Vertical intent (Q/E) → climb/dive tilt
+        const vertical = wish.current.dot(up.current);
+        applyTilt(vertical / DRIFT_SPEED);
       } else {
         const t = now * 0.00012;
         velocity.current.lerp(
@@ -274,6 +286,7 @@ export function PlayerController({
           0.02,
         );
         applyState(now < waveUntil.current ? "wave" : "idle");
+        applyTilt(0);
       }
 
       group.position.addScaledVector(velocity.current, dt);
@@ -335,7 +348,13 @@ export function PlayerController({
 
   return (
     <group ref={playerRef} position={[0, 0.6, 6]}>
-      <Astronaut self state={avatarState} scale={1.05} facing={facing} />
+      <Astronaut
+        self
+        state={avatarState}
+        scale={1.05}
+        facing={facing}
+        tilt={tilt}
+      />
     </group>
   );
 }

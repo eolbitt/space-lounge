@@ -29,11 +29,11 @@ npm run start:prod   # http + /ws  (PORT 기본 43127)
 
 ## 공개 배포 (Render)
 
+- **GitHub:** https://github.com/eolbitt/space-lounge
 - **URL:** https://space-lounge-55de.onrender.com
 - **WebSocket:** `wss://space-lounge-55de.onrender.com/ws` (same-origin)
-- 계정: Render workspace `eolbitt@gmail.com` · free web service `space-lounge`
-- 현재 배포 경로: Docker 이미지 (Cursor origin 레포는 Render GitHub/GitLab 연동이 없어 Blueprint 대신 이미지 배포)
-- 이미지 레지스트리(ttl.sh)는 한시적 — 영구 운영은 GitHub 연결 후 `render.yaml` Blueprint 권장
+- 계정: Render `eolbitt@gmail.com` · free web `space-lounge` · **Git 빌드** (`main` + `render.yaml` / `start:prod`)
+- ttl.sh 이미지 배포는 제거됨
 
 ## Render 무료 배포 (권장)
 
