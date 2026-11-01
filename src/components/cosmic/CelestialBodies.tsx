@@ -4,25 +4,14 @@ import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Billboard, useTexture } from "@react-three/drei";
 import * as THREE from "three";
+import { BLACKHOLE_POS, EARTH_POS, SUN_POS } from "@/lib/solarSystem";
 
-/** Matches LoungeObjects EARTH_POS. */
-const EARTH_ANCHOR = new THREE.Vector3(2, -9, -16);
+export { BLACKHOLE_POS, EARTH_POS, SUN_POS };
 
 /** Earth billboard diameter used as scale reference. */
 export const EARTH_SIZE = 18;
 /** Sun diameter ≈ 12× Earth — readable but distant landmark. */
 export const SUN_DIAMETER = EARTH_SIZE * 12;
-/**
- * Deep-space side opposite Earth (farther so the disk is not in the face).
- * Distance must exceed sun radius (~108) so the lounge is not inside the sphere.
- * Keep in sync with planetFlags SUN_FLAG_POS.
- */
-export const SUN_POS = EARTH_ANCHOR.clone()
-  .multiplyScalar(-1)
-  .normalize()
-  .multiplyScalar(420);
-
-export const BLACKHOLE_POS = new THREE.Vector3(-32, -8, -42);
 
 /**
  * View-aligned matcap sampling — flame disk fills the silhouette evenly

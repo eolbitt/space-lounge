@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { getSolarPlanets, MOON_POS } from "@/lib/solarSystem";
 
 /** Shared planet flag — max 10 chars; 1‑min forced lock then overwrite allowed. */
 export const FLAG_MAX_CHARS = 10;
@@ -32,7 +33,7 @@ export type PlanetSite = {
 };
 
 /**
- * Must stay in sync with CelestialBodies SUN_POS (distance 420).
+ * Must stay in sync with solarSystem SUN_POS (distance 420).
  * EARTH (2,-9,-16) → opposite unit * 420.
  */
 export const SUN_FLAG_POS: [number, number, number] = [
@@ -41,59 +42,26 @@ export const SUN_FLAG_POS: [number, number, number] = [
 /** Lounge-side approach toward the sun for planting the sun flag */
 export const SUN_INTERACT_POS: [number, number, number] = [-4, 16, 30];
 
+const solar = getSolarPlanets();
+
 /**
- * Major bodies that can hold a shared flag.
- * Positions match lounge mid-ground + mid-far aliens + sun.
+ * Solar-system bodies + moon + sun that can hold a shared flag.
+ * Alien / duplicate sky planets removed.
  */
 export const PLANET_SITES: PlanetSite[] = [
-  {
-    id: "earth",
-    label: "지구",
-    pos: [2, -9, -16],
-    reach: 16,
-    flagLift: 11,
-  },
+  ...solar.map((p) => ({
+    id: p.id,
+    label: p.label,
+    pos: [p.pos.x, p.pos.y, p.pos.z] as [number, number, number],
+    reach: p.reach,
+    flagLift: p.flagLift,
+  })),
   {
     id: "moon",
     label: "달",
-    pos: [24, 6, -30],
+    pos: [MOON_POS.x, MOON_POS.y, MOON_POS.z],
     reach: 10,
-    flagLift: 4.2,
-  },
-  {
-    id: "ring",
-    label: "고리행성",
-    pos: [-26, 8, -34],
-    reach: 11,
-    flagLift: 5.5,
-  },
-  {
-    id: "blackhole",
-    label: "블랙홀",
-    pos: [-32, -8, -42],
-    reach: 12,
-    flagLift: 5,
-  },
-  {
-    id: "alien-ice",
-    label: "얼음행성",
-    pos: [18, 10, -48],
-    reach: 12,
-    flagLift: 8,
-  },
-  {
-    id: "alien-gas",
-    label: "가스행성",
-    pos: [-22, 6, -52],
-    reach: 13,
-    flagLift: 9,
-  },
-  {
-    id: "alien-red",
-    label: "붉은행성",
-    pos: [30, -2, -40],
-    reach: 10,
-    flagLift: 5,
+    flagLift: 3.5,
   },
   {
     id: "sun",
