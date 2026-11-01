@@ -129,7 +129,11 @@ export function Visitors({ playerRef, onHeart, onPeerCount }: Props) {
   return (
     <group>
       {live.map((v) => (
-        <group key={v.id} position={v.position}>
+        <group
+          key={v.id}
+          position={v.position}
+          userData={{ cosmicFocus: true, kind: v.kind, id: v.id }}
+        >
           <Astronaut
             state={v.state}
             scale={v.kind === "peer" ? 1 : 0.92}

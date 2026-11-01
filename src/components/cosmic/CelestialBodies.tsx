@@ -4,20 +4,24 @@ import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Billboard, useTexture } from "@react-three/drei";
 import * as THREE from "three";
-/** Matches LoungeObjects EARTH_POS — opposite placement for the sun. */
+/** Matches LoungeObjects EARTH_POS. */
 const EARTH_ANCHOR = new THREE.Vector3(2, -9, -16);
 
 /** Earth billboard diameter used as scale reference. */
 export const EARTH_SIZE = 18;
 /** Sun diameter ≈ 10× Earth. */
 export const SUN_DIAMETER = EARTH_SIZE * 10;
-/** Opposite side of Earth through the lounge origin. */
+/**
+ * Deep-space side opposite Earth (ref: empty forward vista in sun-direction-ref).
+ * Placed so looking away from Earth fills the view with the sun.
+ */
 export const SUN_POS = EARTH_ANCHOR.clone()
+  .multiplyScalar(-1)
   .normalize()
-  .multiplyScalar(-72)
-  .add(new THREE.Vector3(0, 8, 0));
+  .multiplyScalar(58)
+  .add(new THREE.Vector3(-4, 14, 6));
 
-export const BLACKHOLE_POS = new THREE.Vector3(-30, -6, -38);
+export const BLACKHOLE_POS = new THREE.Vector3(-32, -8, -42);
 
 /** Photoreal sphere + additive corona — no checkerboard billboard. */
 export function SunBody() {

@@ -33,7 +33,7 @@ export function SpaceScene({
     <Canvas
       className="absolute inset-0 h-full w-full touch-none"
       dpr={[1, 1.75]}
-      camera={{ position: [0, 2.2, 14], fov: 50, near: 0.1, far: 400 }}
+      camera={{ position: [0, 2.2, 14], fov: 50, near: 0.1, far: 900 }}
       gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
       onCreated={({ gl }) => {
         gl.setClearColor(new THREE.Color("#05060f"));

@@ -23,6 +23,11 @@ type Props = {
 };
 
 const keys = new Set<string>();
+const pointers = new Map<number, { x: number; y: number }>();
+
+const CAM_DIST_MIN = 3.2;
+const CAM_DIST_MAX = 16;
+const CAM_DIST_DEFAULT = 6.8;
 
 function softBound(
   pos: THREE.Vector3,
@@ -40,14 +45,18 @@ function softBound(
   }
 }
 
-/** Pointer-drag look + camera-relative WASD/QE drift in true 3D. */
+/**
+ * Camera always frames the player dead-center.
+ * Drag / pinch / wheel / double-click only change orbit yaw/pitch/zoom.
+ * WASD/QE move the avatar; the camera follows the avatar as orbit target.
+ */
 export function PlayerController({
   playerRef,
   action,
   entered,
   onNearPod,
 }: Props) {
-  const { camera, gl } = useThree();
+  const { camera, gl, scene } = useThree();
   const velocity = useRef(new THREE.Vector3());
   const [avatarState, setAvatarState] = useState<AvatarState>("idle");
   const avatarStateRef = useRef<AvatarState>("idle");
@@ -59,8 +68,19 @@ export function PlayerController({
 
   const yaw = useRef(0);
   const pitch = useRef(-0.12);
+  const camDist = useRef(CAM_DIST_DEFAULT);
+  const camDistTarget = useRef(CAM_DIST_DEFAULT);
+  const yawTarget = useRef(0);
+  const pitchTarget = useRef(-0.12);
+
   const dragging = useRef(false);
   const lastPtr = useRef({ x: 0, y: 0 });
+  const pinchStart = useRef<number | null>(null);
+  const pinchDist0 = useRef(CAM_DIST_DEFAULT);
+  const lastTap = useRef(0);
+  const raycaster = useRef(new THREE.Raycaster());
+  const ndc = useRef(new THREE.Vector2());
+
   const publishAcc = useRef(0);
   const roomRef = useRef(getPresenceRoom());
   const nearPodRef = useRef(false);
@@ -71,6 +91,7 @@ export function PlayerController({
   const wish = useRef(new THREE.Vector3());
   const camOffset = useRef(new THREE.Vector3());
   const lookAt = useRef(new THREE.Vector3());
+  const focusDir = useRef(new THREE.Vector3());
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -126,26 +147,122 @@ export function PlayerController({
     el.style.touchAction = "none";
     el.style.cursor = entered ? "grab" : "default";
 
+    const syncPinch = () => {
+      if (pointers.size < 2) {
+        pinchStart.current = null;
+        return;
+      }
+      const pts = [...pointers.values()];
+      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      if (pinchStart.current == null) {
+        pinchStart.current = dist;
+        pinchDist0.current = camDistTarget.current;
+        dragging.current = false;
+        return;
+      }
+      const ratio = pinchStart.current / Math.max(dist, 1);
+      camDistTarget.current = THREE.MathUtils.clamp(
+        pinchDist0.current * ratio,
+        CAM_DIST_MIN,
+        CAM_DIST_MAX,
+      );
+    };
+
+    const focusToward = (clientX: number, clientY: number) => {
+      const rect = el.getBoundingClientRect();
+      ndc.current.set(
+        ((clientX - rect.left) / rect.width) * 2 - 1,
+        -(((clientY - rect.top) / rect.height) * 2 - 1),
+      );
+      raycaster.current.setFromCamera(ndc.current, camera);
+      const hits = raycaster.current.intersectObjects(scene.children, true);
+      let point: THREE.Vector3 | null = null;
+      for (const h of hits) {
+        let o: THREE.Object3D | null = h.object;
+        while (o) {
+          if (o.userData?.cosmicFocus) {
+            point = new THREE.Vector3().setFromMatrixPosition(o.matrixWorld);
+            break;
+          }
+          o = o.parent;
+        }
+        if (point) break;
+        if (!point && h.distance < 80) point = h.point.clone();
+      }
+      if (!point) {
+        // Empty space: project along ray
+        point = raycaster.current.ray.origin
+          .clone()
+          .addScaledVector(raycaster.current.ray.direction, 18);
+      }
+      const player = playerRef.current;
+      if (!player) return;
+      focusDir.current.copy(point).sub(player.position);
+      if (focusDir.current.lengthSq() < 1e-4) return;
+      focusDir.current.normalize();
+      // Orbit so that forward faces the focus direction — avatar stays lookAt target
+      yawTarget.current = Math.atan2(-focusDir.current.x, -focusDir.current.z);
+      pitchTarget.current = THREE.MathUtils.clamp(
+        Math.asin(THREE.MathUtils.clamp(focusDir.current.y, -0.95, 0.95)),
+        -1.15,
+        1.15,
+      );
+      camDistTarget.current = THREE.MathUtils.clamp(
+        camDistTarget.current * 0.72,
+        CAM_DIST_MIN,
+        CAM_DIST_MAX * 0.85,
+      );
+    };
+
     const onDown = (e: PointerEvent) => {
       if (!entered) return;
-      // Ignore UI clicks bubbling — only canvas
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pointers.size >= 2) {
+        syncPinch();
+        return;
+      }
+      const now = performance.now();
+      const isDouble = now - lastTap.current < 320;
+      lastTap.current = now;
+      if (isDouble || e.detail === 2) {
+        focusToward(e.clientX, e.clientY);
+        dragging.current = false;
+        return;
+      }
       dragging.current = true;
       lastPtr.current = { x: e.clientX, y: e.clientY };
-      el.setPointerCapture(e.pointerId);
+      try {
+        el.setPointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
       el.style.cursor = "grabbing";
     };
+
     const onMove = (e: PointerEvent) => {
+      if (!entered) return;
+      if (pointers.has(e.pointerId)) {
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      }
+      if (pointers.size >= 2) {
+        syncPinch();
+        return;
+      }
       if (!dragging.current) return;
       const dx = e.clientX - lastPtr.current.x;
       const dy = e.clientY - lastPtr.current.y;
       lastPtr.current = { x: e.clientX, y: e.clientY };
-      // Drag right → look right
       yaw.current -= dx * 0.005;
       pitch.current -= dy * 0.0038;
       pitch.current = THREE.MathUtils.clamp(pitch.current, -1.2, 1.2);
+      yawTarget.current = yaw.current;
+      pitchTarget.current = pitch.current;
     };
+
     const onUp = (e: PointerEvent) => {
-      dragging.current = false;
+      pointers.delete(e.pointerId);
+      if (pointers.size < 2) pinchStart.current = null;
+      if (pointers.size === 0) dragging.current = false;
       try {
         el.releasePointerCapture(e.pointerId);
       } catch {
@@ -154,17 +271,31 @@ export function PlayerController({
       el.style.cursor = entered ? "grab" : "default";
     };
 
+    const onWheel = (e: WheelEvent) => {
+      if (!entered) return;
+      e.preventDefault();
+      const next = camDistTarget.current + e.deltaY * 0.012;
+      camDistTarget.current = THREE.MathUtils.clamp(
+        next,
+        CAM_DIST_MIN,
+        CAM_DIST_MAX,
+      );
+    };
+
     el.addEventListener("pointerdown", onDown);
     el.addEventListener("pointermove", onMove);
     el.addEventListener("pointerup", onUp);
     el.addEventListener("pointercancel", onUp);
+    el.addEventListener("wheel", onWheel, { passive: false });
     return () => {
       el.removeEventListener("pointerdown", onDown);
       el.removeEventListener("pointermove", onMove);
       el.removeEventListener("pointerup", onUp);
       el.removeEventListener("pointercancel", onUp);
+      el.removeEventListener("wheel", onWheel);
+      pointers.clear();
     };
-  }, [gl, entered]);
+  }, [gl, entered, camera, scene, playerRef]);
 
   useEffect(() => {
     if (action === "wave") {
@@ -194,7 +325,7 @@ export function PlayerController({
 
   function applyTilt(next: number) {
     const clamped = THREE.MathUtils.clamp(next, -1, 1);
-    if (Math.abs(tiltRef.current - clamped) < 0.04) return;
+    if (Math.abs(tiltRef.current - clamped) < 0.03) return;
     tiltRef.current = clamped;
     setTilt(clamped);
   }
@@ -205,7 +336,21 @@ export function PlayerController({
     const dt = Math.min(delta, 0.05);
     const now = performance.now();
 
-    // Camera-relative axes from look yaw/pitch (matches what user sees)
+    // Smooth orbit toward focus targets (double-click / tap)
+    yaw.current = THREE.MathUtils.damp(yaw.current, yawTarget.current, 6, dt);
+    pitch.current = THREE.MathUtils.damp(
+      pitch.current,
+      pitchTarget.current,
+      6,
+      dt,
+    );
+    camDist.current = THREE.MathUtils.damp(
+      camDist.current,
+      camDistTarget.current,
+      7,
+      dt,
+    );
+
     const cy = yaw.current;
     const cp = pitch.current;
     forward.current.set(
@@ -213,12 +358,10 @@ export function PlayerController({
       Math.sin(cp),
       -Math.cos(cy) * Math.cos(cp),
     );
-    // Horizontal strafe (ignore pitch so A/D stay level)
     right.current.set(Math.cos(cy), 0, -Math.sin(cy)).normalize();
     up.current.set(0, 1, 0);
 
     if (action === "wave") {
-      // Hold world position — wave is motion-only, no drift/perch.
       velocity.current.set(0, 0, 0);
       applyTilt(0);
       applyState(now < waveUntil.current ? "wave" : "idle");
@@ -240,32 +383,41 @@ export function PlayerController({
       }
     } else {
       wish.current.set(0, 0, 0);
-      if (keys.has("w") || keys.has("arrowup")) {
-        wish.current.add(forward.current);
-      }
-      if (keys.has("s") || keys.has("arrowdown")) {
+      let vertKey = 0;
+      let latKey = 0;
+      if (keys.has("w") || keys.has("arrowup")) wish.current.add(forward.current);
+      if (keys.has("s") || keys.has("arrowdown"))
         wish.current.sub(forward.current);
-      }
       if (keys.has("d") || keys.has("arrowright")) {
         wish.current.add(right.current);
+        latKey += 1;
       }
       if (keys.has("a") || keys.has("arrowleft")) {
         wish.current.sub(right.current);
+        latKey -= 1;
       }
-      if (keys.has("q")) wish.current.add(up.current);
-      if (keys.has("e")) wish.current.sub(up.current);
+      if (keys.has("q")) {
+        wish.current.add(up.current);
+        vertKey += 1;
+      }
+      if (keys.has("e")) {
+        wish.current.sub(up.current);
+        vertKey -= 1;
+      }
 
       if (wish.current.lengthSq() > 1e-6) {
         wish.current.normalize().multiplyScalar(DRIFT_SPEED);
         velocity.current.lerp(wish.current, 0.16);
         applyState("move");
-        // Mirror from camera-relative lateral intent (A/D or diagonal).
-        // Pure W/S keeps last facing so the sprite doesn't flicker.
-        const lateral = wish.current.dot(right.current);
-        if (Math.abs(lateral) > 0.08) applyFacing(lateral);
-        // Vertical intent (Q/E) → climb/dive tilt
-        const vertical = wish.current.dot(up.current);
-        applyTilt(vertical / DRIFT_SPEED);
+
+        // Vertical Q/E dominates → tilt only (never left/right mirror)
+        if (Math.abs(vertKey) > 0 && Math.abs(vertKey) >= Math.abs(latKey)) {
+          applyTilt(vertKey > 0 ? 1 : -1);
+        } else {
+          applyTilt(0);
+          const lateral = wish.current.dot(right.current);
+          if (Math.abs(lateral) > 0.08) applyFacing(lateral);
+        }
       } else {
         const t = now * 0.00012;
         velocity.current.lerp(
@@ -319,26 +471,26 @@ export function PlayerController({
       );
     }
 
-    // Third-person camera behind look direction
-    const dist = 6.8;
+    // Orbit camera — lookAt is ALWAYS the player (screen-center lock)
+    const dist = camDist.current;
     camOffset.current.set(
       Math.sin(cy) * Math.cos(cp) * dist,
-      Math.sin(cp) * dist * 0.75 + 1.35,
+      Math.sin(cp) * dist * 0.72 + 1.15,
       Math.cos(cy) * Math.cos(cp) * dist,
     );
-    camera.position.lerp(
-      group.position.clone().add(camOffset.current),
-      1 - Math.pow(0.045, dt),
-    );
-    lookAt.current
-      .copy(group.position)
-      .add(new THREE.Vector3(0, 0.45, 0))
-      .addScaledVector(forward.current, 6);
+    const targetCam = group.position.clone().add(camOffset.current);
+    camera.position.lerp(targetCam, 1 - Math.pow(0.02, dt));
+    // Hard lock look-at to avatar so they never drift off-center
+    lookAt.current.copy(group.position).add(new THREE.Vector3(0, 0.42, 0));
     camera.lookAt(lookAt.current);
   });
 
   return (
-    <group ref={playerRef} position={[0, 0.6, 6]}>
+    <group
+      ref={playerRef}
+      position={[0, 0.6, 6]}
+      userData={{ cosmicFocus: true, kind: "self" }}
+    >
       <Astronaut
         self
         state={avatarState}
