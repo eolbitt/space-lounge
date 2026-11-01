@@ -1,0 +1,25 @@
+# Space Lounge — Render Blueprint (free tier friendly)
+# One web service: Next.js + same-origin presence WebSocket at /ws
+#
+# Deploy: Render Dashboard → New → Blueprint → connect this repo
+# Or: https://dashboard.render.com/select-repo?type=blueprint
+
+services:
+  - type: web
+    name: space-lounge
+    runtime: node
+    plan: free
+    region: oregon
+    branch: cursor/cosmic-lounge-mvp-93b8
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start:prod
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NODE_ENV
+        value: production
+      # Leave unset for same-origin wss://<host>/ws (recommended).
+      # Override only if the WS relay is a separate service:
+      # - key: NEXT_PUBLIC_WS_URL
+      #   value: wss://your-ws-host/ws

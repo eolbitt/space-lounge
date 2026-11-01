@@ -24,7 +24,23 @@ type Props = {
 
 const keys = new Set<string>();
 
-/** Pointer-drag look + WASD/QE drift in true 3D (camera-relative). */
+function softBound(
+  pos: THREE.Vector3,
+  vel: THREE.Vector3,
+  axis: "x" | "y" | "z",
+  min: number,
+  max: number,
+) {
+  if (pos[axis] < min) {
+    pos[axis] = min;
+    vel[axis] *= -0.25;
+  } else if (pos[axis] > max) {
+    pos[axis] = max;
+    vel[axis] *= -0.25;
+  }
+}
+
+/** Pointer-drag look + camera-relative WASD/QE drift in true 3D. */
 export function PlayerController({
   playerRef,
   action,
@@ -35,25 +51,52 @@ export function PlayerController({
   const velocity = useRef(new THREE.Vector3());
   const [avatarState, setAvatarState] = useState<AvatarState>("idle");
   const avatarStateRef = useRef<AvatarState>("idle");
+  const [facing, setFacing] = useState(1);
+  const facingRef = useRef(1);
   const waveUntil = useRef(0);
 
   const yaw = useRef(0);
   const pitch = useRef(-0.12);
   const dragging = useRef(false);
   const lastPtr = useRef({ x: 0, y: 0 });
-  const lookEase = useRef(new THREE.Vector3());
   const publishAcc = useRef(0);
   const roomRef = useRef(getPresenceRoom());
   const nearPodRef = useRef(false);
 
+  const forward = useRef(new THREE.Vector3());
+  const right = useRef(new THREE.Vector3());
+  const up = useRef(new THREE.Vector3(0, 1, 0));
+  const wish = useRef(new THREE.Vector3());
+  const camOffset = useRef(new THREE.Vector3());
+  const lookAt = useRef(new THREE.Vector3());
+
   useEffect(() => {
-    const down = (e: KeyboardEvent) => keys.add(e.key.toLowerCase());
-    const up = (e: KeyboardEvent) => keys.delete(e.key.toLowerCase());
-    window.addEventListener("keydown", down);
-    window.addEventListener("keyup", up);
+    const down = (e: KeyboardEvent) => {
+      const k = e.key.toLowerCase();
+      if (
+        [
+          "w",
+          "a",
+          "s",
+          "d",
+          "q",
+          "e",
+          "arrowup",
+          "arrowdown",
+          "arrowleft",
+          "arrowright",
+        ].includes(k)
+      ) {
+        e.preventDefault();
+      }
+      keys.add(k);
+    };
+    const upKey = (e: KeyboardEvent) => keys.delete(e.key.toLowerCase());
+    window.addEventListener("keydown", down, { passive: false });
+    window.addEventListener("keyup", upKey);
     return () => {
       window.removeEventListener("keydown", down);
-      window.removeEventListener("keyup", up);
+      window.removeEventListener("keyup", upKey);
     };
   }, []);
 
@@ -83,6 +126,7 @@ export function PlayerController({
 
     const onDown = (e: PointerEvent) => {
       if (!entered) return;
+      // Ignore UI clicks bubbling — only canvas
       dragging.current = true;
       lastPtr.current = { x: e.clientX, y: e.clientY };
       el.setPointerCapture(e.pointerId);
@@ -93,9 +137,10 @@ export function PlayerController({
       const dx = e.clientX - lastPtr.current.x;
       const dy = e.clientY - lastPtr.current.y;
       lastPtr.current = { x: e.clientX, y: e.clientY };
-      yaw.current -= dx * 0.0045;
-      pitch.current -= dy * 0.0035;
-      pitch.current = THREE.MathUtils.clamp(pitch.current, -1.15, 1.15);
+      // Drag right → look right
+      yaw.current -= dx * 0.005;
+      pitch.current -= dy * 0.0038;
+      pitch.current = THREE.MathUtils.clamp(pitch.current, -1.2, 1.2);
     };
     const onUp = (e: PointerEvent) => {
       dragging.current = false;
@@ -134,30 +179,38 @@ export function PlayerController({
     setAvatarState(next);
   }
 
+  function applyFacing(dir: number) {
+    if (dir === 0) return;
+    const next = dir > 0 ? 1 : -1;
+    if (facingRef.current !== next) {
+      facingRef.current = next;
+      setFacing(next);
+    }
+  }
+
   useFrame((_, delta) => {
     const group = playerRef.current;
     if (!group || !entered) return;
     const dt = Math.min(delta, 0.05);
     const now = performance.now();
 
-    // Forward/right from yaw (horizontal) for WASD
-    const forward = new THREE.Vector3(
-      -Math.sin(yaw.current),
-      0,
-      -Math.cos(yaw.current),
+    // Camera-relative axes from look yaw/pitch (matches what user sees)
+    const cy = yaw.current;
+    const cp = pitch.current;
+    forward.current.set(
+      -Math.sin(cy) * Math.cos(cp),
+      Math.sin(cp),
+      -Math.cos(cy) * Math.cos(cp),
     );
-    const right = new THREE.Vector3(
-      Math.cos(yaw.current),
-      0,
-      -Math.sin(yaw.current),
-    );
+    // Horizontal strafe (ignore pitch so A/D stay level)
+    right.current.set(Math.cos(cy), 0, -Math.sin(cy)).normalize();
+    up.current.set(0, 1, 0);
 
     if (action === "look") {
       const desired = new THREE.Vector3(0.5, 1.2, 4);
       group.position.lerp(desired, 1 - Math.pow(0.015, dt));
       velocity.current.set(0, 0, 0);
       applyState("idle");
-      // Ease look toward Earth
       const toEarth = LOOK_AT_EARTH.clone().sub(group.position).normalize();
       const targetYaw = Math.atan2(-toEarth.x, -toEarth.z);
       const targetPitch = Math.asin(
@@ -179,37 +232,44 @@ export function PlayerController({
           now < waveUntil.current || action === "wave" ? "wave" : "rest",
         );
       } else {
-        velocity.current.lerp(new THREE.Vector3(), 0.06);
+        velocity.current.lerp(new THREE.Vector3(), 0.08);
         group.position.addScaledVector(velocity.current, dt);
         applyState(
           now < waveUntil.current || action === "wave" ? "wave" : "idle",
         );
       }
     } else {
-      const wish = new THREE.Vector3();
-      if (keys.has("w") || keys.has("arrowup")) wish.add(forward);
-      if (keys.has("s") || keys.has("arrowdown")) wish.sub(forward);
-      if (keys.has("a") || keys.has("arrowleft")) wish.sub(right);
-      if (keys.has("d") || keys.has("arrowright")) wish.add(right);
-      if (keys.has("q")) wish.y += 1;
-      if (keys.has("e")) wish.y -= 1;
-
-      // Pointer drag while holding also nudges forward slowly (optional feel)
-      if (dragging.current && wish.lengthSq() === 0) {
-        // no auto thrust — look only
+      wish.current.set(0, 0, 0);
+      if (keys.has("w") || keys.has("arrowup")) {
+        wish.current.add(forward.current);
       }
+      if (keys.has("s") || keys.has("arrowdown")) {
+        wish.current.sub(forward.current);
+      }
+      if (keys.has("d") || keys.has("arrowright")) {
+        wish.current.add(right.current);
+      }
+      if (keys.has("a") || keys.has("arrowleft")) {
+        wish.current.sub(right.current);
+      }
+      if (keys.has("q")) wish.current.add(up.current);
+      if (keys.has("e")) wish.current.sub(up.current);
 
-      if (wish.lengthSq() > 0) {
-        wish.normalize().multiplyScalar(DRIFT_SPEED);
-        velocity.current.lerp(wish, 0.14);
+      if (wish.current.lengthSq() > 1e-6) {
+        wish.current.normalize().multiplyScalar(DRIFT_SPEED);
+        velocity.current.lerp(wish.current, 0.16);
         applyState("move");
+        // Mirror from camera-relative lateral intent (A/D or diagonal).
+        // Pure W/S keeps last facing so the sprite doesn't flicker.
+        const lateral = wish.current.dot(right.current);
+        if (Math.abs(lateral) > 0.08) applyFacing(lateral);
       } else {
-        const t = now * 0.00015;
+        const t = now * 0.00012;
         velocity.current.lerp(
           new THREE.Vector3(
-            Math.sin(t) * IDLE_DRIFT * 0.35,
-            Math.sin(t * 0.7) * IDLE_DRIFT * 0.15,
-            Math.cos(t * 0.9) * IDLE_DRIFT * 0.35,
+            Math.sin(t) * IDLE_DRIFT * 0.25,
+            Math.sin(t * 0.7 + 1.2) * IDLE_DRIFT * 0.12,
+            Math.cos(t * 0.9) * IDLE_DRIFT * 0.25,
           ),
           0.02,
         );
@@ -218,31 +278,12 @@ export function PlayerController({
 
       group.position.addScaledVector(velocity.current, dt);
       const b = WORLD_BOUNDS;
-      if (Math.abs(group.position.x) > b.x) {
-        group.position.x = THREE.MathUtils.clamp(group.position.x, -b.x, b.x);
-        velocity.current.x *= -0.25;
-      }
-      if (group.position.y < b.yMin || group.position.y > b.yMax) {
-        group.position.y = THREE.MathUtils.clamp(
-          group.position.y,
-          b.yMin,
-          b.yMax,
-        );
-        velocity.current.y *= -0.25;
-      }
-      if (group.position.z < b.zMin || group.position.z > b.zMax) {
-        group.position.z = THREE.MathUtils.clamp(
-          group.position.z,
-          b.zMin,
-          b.zMax,
-        );
-        velocity.current.z *= -0.25;
-      }
+      softBound(group.position, velocity.current, "x", -b.x, b.x);
+      softBound(group.position, velocity.current, "y", b.yMin, b.yMax);
+      softBound(group.position, velocity.current, "z", b.zMin, b.zMax);
     }
 
-    // Soft auto-rest near lounge pod even while drifting slowly
     const rest = nearestRestSpot(group.position);
-    // Hysteresis so the enter button does not flicker
     const enterDist = 5.2;
     const leaveDist = 7.2;
     let nearPod = nearPodRef.current;
@@ -256,14 +297,13 @@ export function PlayerController({
       nearPodRef.current = nearPod;
       onNearPod?.(nearPod);
     }
-    if (action === "drift") {
-      if (
-        rest?.kind === "pod" &&
-        rest.dist < 2.4 &&
-        velocity.current.length() < 0.35
-      ) {
-        applyState("rest");
-      }
+    if (
+      action === "drift" &&
+      rest?.kind === "pod" &&
+      rest.dist < 2.4 &&
+      velocity.current.length() < 0.35
+    ) {
+      applyState("rest");
     }
 
     publishAcc.current += dt;
@@ -275,39 +315,27 @@ export function PlayerController({
       );
     }
 
-    // Third-person camera on a sphere behind the avatar, following look angles
+    // Third-person camera behind look direction
     const dist = 6.8;
-    const cp = pitch.current;
-    const cy = yaw.current;
-    const offset = new THREE.Vector3(
+    camOffset.current.set(
       Math.sin(cy) * Math.cos(cp) * dist,
-      Math.sin(cp) * dist * 0.85 + 1.2,
+      Math.sin(cp) * dist * 0.75 + 1.35,
       Math.cos(cy) * Math.cos(cp) * dist,
     );
-    const camDesired = group.position.clone().add(offset);
-    camera.position.lerp(camDesired, 1 - Math.pow(0.04, dt));
-
-    lookEase.current
+    camera.position.lerp(
+      group.position.clone().add(camOffset.current),
+      1 - Math.pow(0.045, dt),
+    );
+    lookAt.current
       .copy(group.position)
       .add(new THREE.Vector3(0, 0.45, 0))
-      .add(forward.clone().multiplyScalar(2.5));
-    // Blend look-at with pitch influence
-    const lookAt = group.position
-      .clone()
-      .add(new THREE.Vector3(0, 0.5, 0))
-      .add(
-        new THREE.Vector3(
-          -Math.sin(cy) * Math.cos(cp),
-          Math.sin(cp),
-          -Math.cos(cy) * Math.cos(cp),
-        ).multiplyScalar(8),
-      );
-    camera.lookAt(lookAt);
+      .addScaledVector(forward.current, 6);
+    camera.lookAt(lookAt.current);
   });
 
   return (
     <group ref={playerRef} position={[0, 0.6, 6]}>
-      <Astronaut self state={avatarState} scale={1.05} />
+      <Astronaut self state={avatarState} scale={1.05} facing={facing} />
     </group>
   );
 }

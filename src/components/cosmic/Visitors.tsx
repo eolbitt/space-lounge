@@ -31,6 +31,7 @@ type LiveBody = {
   position: [number, number, number];
   state: AvatarState;
   kind: "peer" | "mock";
+  facing: number;
 };
 
 /** Live BroadcastChannel peers + mock visitors as ambient fallback. */
@@ -40,8 +41,11 @@ export function Visitors({ playerRef, onHeart, onPeerCount }: Props) {
   const [live, setLive] = useState<LiveBody[]>([]);
   const throttle = useRef(0);
   const cooldowns = useRef<Map<string, number>>(new Map());
+  const prevPos = useRef<Map<string, [number, number, number]>>(new Map());
+  const facingMap = useRef<Map<string, number>>(new Map());
   const { camera, size } = useThree();
   const tmp = useRef(new THREE.Vector3());
+  const camRight = useRef(new THREE.Vector3());
 
   useEffect(() => {
     const room = getPresenceRoom();
@@ -62,26 +66,38 @@ export function Visitors({ playerRef, onHeart, onPeerCount }: Props) {
     const player = playerRef.current?.position;
 
     const bodies: LiveBody[] = [];
+    camRight.current.setFromMatrixColumn(camera.matrixWorld, 0);
+    camRight.current.y = 0;
+    if (camRight.current.lengthSq() > 1e-6) camRight.current.normalize();
+
+    const pushBody = (
+      id: string,
+      position: [number, number, number],
+      state: AvatarState,
+      kind: "peer" | "mock",
+    ) => {
+      const prev = prevPos.current.get(id);
+      let face = facingMap.current.get(id) ?? 1;
+      if (prev) {
+        const dx = position[0] - prev[0];
+        const dz = position[2] - prev[2];
+        const lateral = dx * camRight.current.x + dz * camRight.current.z;
+        if (Math.abs(lateral) > 0.002) face = lateral > 0 ? 1 : -1;
+      }
+      prevPos.current.set(id, position);
+      facingMap.current.set(id, face);
+      bodies.push({ id, position, state, kind, facing: face });
+    };
 
     for (const peer of peers.values()) {
-      bodies.push({
-        id: peer.id,
-        position: peer.position,
-        state: peer.state,
-        kind: "peer",
-      });
+      pushBody(peer.id, peer.position, peer.state, "peer");
     }
 
     // Keep a few mock visitors when alone / sparse — ambient co-presence fallback
     const mockBudget = Math.max(0, 5 - peers.size);
     mocks.slice(0, mockBudget).forEach((v: MockVisitor) => {
       const pose = visitorPose(v, t);
-      bodies.push({
-        id: v.id,
-        position: pose.position,
-        state: pose.state,
-        kind: "mock",
-      });
+      pushBody(v.id, pose.position, pose.state, "mock");
     });
 
     setLive(bodies);
@@ -114,7 +130,11 @@ export function Visitors({ playerRef, onHeart, onPeerCount }: Props) {
     <group>
       {live.map((v) => (
         <group key={v.id} position={v.position}>
-          <Astronaut state={v.state} scale={v.kind === "peer" ? 1 : 0.92} />
+          <Astronaut
+            state={v.state}
+            scale={v.kind === "peer" ? 1 : 0.92}
+            facing={v.facing}
+          />
         </group>
       ))}
     </group>

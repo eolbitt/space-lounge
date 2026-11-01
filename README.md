@@ -6,12 +6,75 @@
 ## 경험
 
 - **떠다니기** / **가만히 있기** / **인사하기** / **바라보기**
-- **3D 유영** — 드래그(터치)로 시야, WASD/화살표·Q/E로 이동
-- **멀티탭 실시간** — BroadcastChannel로 같은 브라우저 탭끼리 위치·상태·하트 공유 (폴백 모의 방문객)
-- **라운지 포드** — 따뜻한 창문의 Rest 포인트
-- 스카이돔 + 절차형 별 + 빌보드 성운
+- **3D 유영** — 드래그(터치)로 시야, WASD/화살표·Q/E로 카메라 상대 이동
+- **실시간 공존** — WebSocket 프레즌스(+ BroadcastChannel 폴백)
+- **라운지 포드** — 따뜻한 창문의 Rest 포인트 / 내부 입장
 - 근접 시 **마음(하트) +1** (쿨다운)
-- BGM/SFX 토글 · Idle/Move/Rest/Wave · 익명 동일 우주복
+- BGM/SFX · Idle/Move/Rest/Wave · 익명 동일 우주복
+
+## 로컬 실행
+
+```bash
+npm install
+npm run dev:ws   # 터미널 1 — ws://0.0.0.0:43128
+npm run dev      # 터미널 2 — http://127.0.0.1:43127
+```
+
+한 프로세스로 프로덕션과 동일하게 돌리려면:
+
+```bash
+npm run build
+npm run start:prod   # http + /ws  (PORT 기본 43127)
+```
+
+## Render 무료 배포 (권장)
+
+웹과 presence WebSocket을 **하나의 웹 서비스**로 합쳤습니다.  
+프로덕션 엔트리 `server/prod.mjs`가 Next를 띄우고 같은 포트에서 `/ws` 업그레이드를 처리합니다.
+
+### Blueprint (가장 쉬움)
+
+1. [Render Dashboard](https://dashboard.render.com/) → **New** → **Blueprint**
+2. 이 저장소를 연결하고 `render.yaml` 확인
+3. **Apply** — 빌드: `npm ci && npm run build` / 스타트: `npm run start:prod`
+4. 배포 후 공개 URL: `https://<service>.onrender.com`  
+   WebSocket: `wss://<service>.onrender.com/ws` (같은 오리진, 별도 env 불필요)
+
+### 수동 웹 서비스
+
+| 항목 | 값 |
+|------|-----|
+| Runtime | Node |
+| Plan | Free |
+| Build | `npm ci && npm run build` |
+| Start | `npm run start:prod` |
+| Health check | `/` |
+
+환경변수:
+
+| Key | 값 | 비고 |
+|-----|-----|------|
+| `NODE_VERSION` | `20` | 권장 |
+| `NODE_ENV` | `production` | |
+| `NEXT_PUBLIC_WS_URL` | _(비움)_ | 비우면 자동으로 `wss://<host>/ws` |
+| `PORT` | Render가 주입 | 직접 설정하지 말 것 |
+
+### Free tier 참고
+
+- 약 15분 무접속 후 스핀다운 → 첫 요청이 느릴 수 있음
+- WebSocket도 같은 프로세스가 잠들면 함께 끊김 (재접속 로직이 있음)
+- 계정·CLI 키가 없으면 Blueprint를 대시보드에서만 적용할 수 있습니다
+
+### Cloudflare tunnel (보조)
+
+로컬/에이전트 미리보기용. 영구 공개 URL이 필요하면 Render를 쓰세요.
+
+```bash
+# 예시 — Next와 WS를 각각 터널
+cloudflared tunnel --url http://127.0.0.1:43127
+cloudflared tunnel --url http://127.0.0.1:43128
+# Next 쪽에 NEXT_PUBLIC_WS_URL=wss://<ws-tunnel> 전달
+```
 
 ## 에셋
 
@@ -22,37 +85,10 @@ public/assets/objects/     earth, moon, planet, asteroid, lounge-pod.png
 public/assets/audio/       ambient-space.ogg, sfx-wave.ogg, sfx-heart.ogg
 ```
 
-## 동기화
-
-- **WebSocket** 릴레이: `npm run dev:ws` → `ws://0.0.0.0:43128` (크로스 디바이스)
-- 실패 시 **BroadcastChannel** 폴백 (같은 브라우저 탭)
-- 둘 다 없으면 모의 방문객
-
-```bash
-npm run dev:ws   # 터미널 1
-npm run dev      # 터미널 2 — http://0.0.0.0:43127
-```
-
-터널 사용 시 `NEXT_PUBLIC_WS_URL=wss://…` 를 Next에 넘기세요.
-
-## 실행
-
-```bash
-npm install
-npm run dev
-```
-
-[http://127.0.0.1:43127](http://127.0.0.1:43127)
-
 ## 기술
 
-Next.js · TypeScript · Tailwind · three.js / React Three Fiber / drei  
-스카이돔·절차형 별점·빌보드 천체/아바타 · 포인터 시야 + WASD 드리프트  
-실시간 백엔드 없이 모의 프레즌스.
-
-## 포드
-
-가까이 가면 **포드 들어가기** → 조용한 내부 → **우주로 나가기**.
+Next.js · TypeScript · Tailwind · three.js / React Three Fiber / drei · `ws`  
+카메라 상대 WASD + 스프라이트 좌우 미러 · 단일 프로세스 HTTP+/ws
 
 ## 미룸
 

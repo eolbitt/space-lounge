@@ -38,12 +38,16 @@ function getOrCreateSelfId() {
 
 function resolveWsUrl() {
   if (typeof window === "undefined") return null;
-  const fromEnv = process.env.NEXT_PUBLIC_WS_URL;
+  const fromEnv = process.env.NEXT_PUBLIC_WS_URL?.trim();
   if (fromEnv) return fromEnv;
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const host = window.location.hostname || "127.0.0.1";
-  // Presence relay listens on 43128 by default
-  return `${proto}//${host}:43128`;
+  const { hostname, host } = window.location;
+  // `next dev` + separate `dev:ws` process on :43128
+  if (process.env.NODE_ENV === "development") {
+    return `${proto}//${hostname || "127.0.0.1"}:43128`;
+  }
+  // Production / `start:prod`: same-origin upgrade path
+  return `${proto}//${host}/ws`;
 }
 
 type Listener = {

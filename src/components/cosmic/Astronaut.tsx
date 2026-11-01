@@ -10,6 +10,8 @@ type AstronautProps = {
   state?: AvatarState;
   self?: boolean;
   scale?: number;
+  /** 1 = default sprite, -1 = mirrored (strafe left / move left of camera). */
+  facing?: number;
 };
 
 /** Billboard sprite in 3D space — never baked into the backdrop. */
@@ -17,6 +19,7 @@ export function Astronaut({
   state = "idle",
   self = false,
   scale = 1,
+  facing = 1,
 }: AstronautProps) {
   const textures = useTexture([
     ASTRONAUT_SRC.idle,
@@ -40,6 +43,7 @@ export function Astronaut({
   const img = map.image as { width?: number; height?: number } | undefined;
   const aspect = (img?.width || 1) / (img?.height || 1);
   const w = h * aspect;
+  const face = facing < 0 ? -1 : 1;
 
   useFrame(({ clock }) => {
     if (!bobRef.current) return;
@@ -54,7 +58,11 @@ export function Astronaut({
   return (
     <group ref={bobRef}>
       <Billboard follow>
-        <mesh position={[0, h * 0.5, 0]} renderOrder={10}>
+        <mesh
+          position={[0, h * 0.5, 0]}
+          scale={[face, 1, 1]}
+          renderOrder={10}
+        >
           <planeGeometry args={[w, h]} />
           <meshBasicMaterial
             map={map}
