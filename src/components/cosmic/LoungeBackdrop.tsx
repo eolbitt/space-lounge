@@ -15,7 +15,7 @@ export function LoungeBackdrop() {
   nebula.wrapS = nebula.wrapT = THREE.ClampToEdgeWrapping;
 
   const starGeo = useMemo(() => {
-    const count = 3200;
+    const count = 4800;
     const positions = new Float32Array(count * 3);
     const colors = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {

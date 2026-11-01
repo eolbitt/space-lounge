@@ -133,8 +133,23 @@ const DISTANT_BODIES: {
   { tex: "nebula", pos: [48, 8, -30], size: 28 },
   { tex: "nebula", pos: [-50, 6, -25], size: 30 },
   { tex: "nebula", pos: [-10, -8, 55], size: 26 },
-];
-function CelestialBillboard({
+  // ——— mid-far layer (fills empty sky around avatar without entering play volume) ———
+  { tex: "dwarf", pos: [14, 9, -26], size: 3.2 },
+  { tex: "dwarf", pos: [-11, 11, -24], size: 2.8 },
+  { tex: "moon", pos: [9, 16, -32], size: 3.0 },
+  { tex: "red", pos: [-16, 7, -34], size: 4.5 },
+  { tex: "ice", pos: [21, 4, -36], size: 5.0 },
+  { tex: "dwarf", pos: [3, 14, -28], size: 2.4 },
+  { tex: "moon", pos: [-22, 13, -30], size: 2.6 },
+  { tex: "planet", pos: [28, -3, -38], size: 5.5 },
+  { tex: "gas", pos: [-6, 19, -42], size: 6.5 },
+  { tex: "star", pos: [16, 12, -30], size: 3.2 },
+  { tex: "star", pos: [-14, 15, -33], size: 2.8 },
+  { tex: "star", pos: [6, 8, -40], size: 3.6 },
+  { tex: "star", pos: [-25, 5, -36], size: 2.6 },
+  { tex: "dwarf", pos: [17, -5, -22], size: 2.2 },
+  { tex: "moon", pos: [-8, -6, -30], size: 2.5 },
+];function CelestialBillboard({
   map,
   position,
   size,
