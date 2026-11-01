@@ -11,19 +11,19 @@ import { getPresenceRoom, type PeerPose } from "@/lib/realtime";
 import type { AvatarState } from "@/lib/constants";
 import { touchMove, touchMoveActive } from "@/lib/touchMove";
 
-/** Expanded pod floor bounds (XZ) — open center for walking */
+/** White cocoon cabin floor — open center for walking around the table */
 const FLOOR = {
-  minX: -5.6,
-  maxX: 5.6,
-  minZ: -4.6,
-  maxZ: 4.4,
+  minX: -3.8,
+  maxX: 3.8,
+  minZ: -3.4,
+  maxZ: 3.2,
 } as const;
 
 const WALK_SPEED = 2.2;
 const FLOOR_Y = 0;
-const AVATAR_SCALE = 2.95;
-const PEER_SCALE = 2.7;
-const SIT_REACH = 1.75;
+const AVATAR_SCALE = 2.55;
+const PEER_SCALE = 2.35;
+const SIT_REACH = 1.55;
 
 type SitVista = "earth" | "sun";
 type SitSide = "left" | "right";
@@ -35,19 +35,34 @@ type Seat = {
   yaw: number;
   sitY: number;
   facing: number;
-  /** Fullscreen sit look — opposite (+Z) → Earth; window (−Z) → sun */
+  /** Fullscreen sit look — left chair → Earth; right chair → sun */
   vista: SitVista;
-  /** Left/right chair bank — biases sit camera */
+  /** Left/right chair — biases sit camera */
   side: SitSide;
 };
 
-/** Chairs at edges — walkable through (no furniture collision) */
+/** Two glowing chairs facing each other across the pedestal table */
 const SEATS: Seat[] = [
-  { id: "c0", x: -3.7, z: 2.85, yaw: 0.45, sitY: 0.32, facing: 1, vista: "earth", side: "left" },
-  { id: "c1", x: -1.85, z: 3.35, yaw: 0.08, sitY: 0.32, facing: 1, vista: "earth", side: "left" },
-  { id: "c2", x: 3.45, z: 2.7, yaw: -0.55, sitY: 0.32, facing: -1, vista: "earth", side: "right" },
-  { id: "c3", x: 1.85, z: -3.35, yaw: Math.PI * 0.9, sitY: 0.32, facing: 1, vista: "sun", side: "right" },
-  { id: "c4", x: -3.35, z: -3.2, yaw: Math.PI * 1.1, sitY: 0.32, facing: -1, vista: "sun", side: "left" },
+  {
+    id: "c0",
+    x: -1.55,
+    z: 0.15,
+    yaw: Math.PI * 0.5,
+    sitY: 0.28,
+    facing: 1,
+    vista: "earth",
+    side: "left",
+  },
+  {
+    id: "c1",
+    x: 1.55,
+    z: 0.15,
+    yaw: -Math.PI * 0.5,
+    sitY: 0.28,
+    facing: -1,
+    vista: "sun",
+    side: "right",
+  },
 ];
 
 /** Soft room edge only — furniture/chairs are pass-through */
@@ -229,8 +244,8 @@ function PodWalker({
   const eWasDown = useRef(false);
   const wish = useRef(new THREE.Vector3());
   const vel = useRef(new THREE.Vector3());
-  const camTarget = useRef(new THREE.Vector3(0.2, 0.85, -0.4));
-  const camPos = useRef(new THREE.Vector3(9.2, 5.4, 7.4));
+  const camTarget = useRef(new THREE.Vector3(0, 0.7, -0.6));
+  const camPos = useRef(new THREE.Vector3(5.6, 3.9, 4.8));
 
   useWalkKeys(!sittingProp);
 
@@ -367,14 +382,14 @@ function PodWalker({
       }
 
       camTarget.current.set(
-        pos.current.x * 0.28 + 0.15,
-        0.85,
-        pos.current.z * 0.35 - 0.55,
+        pos.current.x * 0.22,
+        0.72,
+        pos.current.z * 0.28 - 0.85,
       );
       const desired = new THREE.Vector3(
-        9.0 + pos.current.x * 0.12,
-        5.35,
-        7.2 + pos.current.z * 0.22,
+        5.4 + pos.current.x * 0.1,
+        3.85,
+        4.6 + pos.current.z * 0.18,
       );
       camPos.current.lerp(desired, 1 - Math.pow(0.004, clamped));
       camera.position.copy(camPos.current);
@@ -487,6 +502,7 @@ function LoungePeers({ hidden }: { hidden: boolean }) {
   );
 }
 
+/** Soft blob chair with warm yellow LED trim */
 function WarmChair({
   seat,
   onTap,
@@ -506,167 +522,307 @@ function WarmChair({
         e.stopPropagation();
       }}
     >
-      <mesh position={[0, 0.55, 0]} visible={false}>
-        <boxGeometry args={[0.95, 1.2, 0.95]} />
+      <mesh position={[0, 0.5, 0]} visible={false}>
+        <boxGeometry args={[1.05, 1.15, 1.05]} />
         <meshBasicMaterial />
       </mesh>
-      <mesh position={[0, 0.06, 0]} castShadow>
-        <cylinderGeometry args={[0.26, 0.3, 0.1, 24]} />
-        <meshStandardMaterial color="#8a6848" roughness={0.78} />
+      {/* Seat cushion */}
+      <mesh position={[0, 0.28, 0.04]} castShadow>
+        <sphereGeometry args={[0.42, 28, 20]} />
+        <meshStandardMaterial color="#f4f2ee" roughness={0.78} />
       </mesh>
-      <mesh position={[0, 0.24, 0.02]} castShadow>
-        <boxGeometry args={[0.48, 0.14, 0.46]} />
-        <meshStandardMaterial color="#d4b896" roughness={0.72} />
+      <mesh position={[0, 0.22, 0.04]} scale={[1.05, 0.55, 1.05]} castShadow>
+        <sphereGeometry args={[0.4, 24, 16]} />
+        <meshStandardMaterial color="#efece6" roughness={0.82} />
       </mesh>
-      <mesh position={[0, 0.48, -0.16]} castShadow>
-        <boxGeometry args={[0.48, 0.36, 0.09]} />
-        <meshStandardMaterial color="#c9a882" roughness={0.7} />
+      {/* Backrest */}
+      <mesh position={[0, 0.58, -0.22]} scale={[0.95, 1.05, 0.55]} castShadow>
+        <sphereGeometry args={[0.38, 24, 16]} />
+        <meshStandardMaterial color="#f2f0ec" roughness={0.76} />
       </mesh>
-      <mesh position={[0, 0.28, 0.03]}>
-        <boxGeometry args={[0.42, 0.05, 0.36]} />
-        <meshStandardMaterial color="#e8c9a4" roughness={0.85} />
+      {/* Arm rests */}
+      <mesh position={[-0.34, 0.36, 0.02]} scale={[0.38, 0.42, 0.7]} castShadow>
+        <sphereGeometry args={[0.28, 18, 14]} />
+        <meshStandardMaterial color="#f0eeea" roughness={0.8} />
+      </mesh>
+      <mesh position={[0.34, 0.36, 0.02]} scale={[0.38, 0.42, 0.7]} castShadow>
+        <sphereGeometry args={[0.28, 18, 14]} />
+        <meshStandardMaterial color="#f0eeea" roughness={0.8} />
+      </mesh>
+      {/* Yellow LED trim — arm curve */}
+      <mesh position={[-0.4, 0.4, 0.02]} rotation={[Math.PI / 2, 0, 0.15]}>
+        <torusGeometry args={[0.22, 0.018, 10, 28, Math.PI * 1.15]} />
+        <meshBasicMaterial color="#ffcc55" toneMapped={false} />
+      </mesh>
+      <mesh position={[0.4, 0.4, 0.02]} rotation={[Math.PI / 2, 0, -0.15]}>
+        <torusGeometry args={[0.22, 0.018, 10, 28, Math.PI * 1.15]} />
+        <meshBasicMaterial color="#ffcc55" toneMapped={false} />
+      </mesh>
+      <mesh position={[0, 0.62, -0.28]} rotation={[0.2, 0, 0]}>
+        <torusGeometry args={[0.26, 0.016, 10, 32, Math.PI]} />
+        <meshBasicMaterial color="#ffd266" toneMapped={false} />
+      </mesh>
+      <pointLight position={[0, 0.45, 0.1]} intensity={0.35} distance={2.2} color="#ffc45a" />
+    </group>
+  );
+}
+
+function GlowingPedestalTable() {
+  const glow = useRef<THREE.PointLight>(null);
+  useFrame(({ clock }) => {
+    if (glow.current) {
+      glow.current.intensity = 0.85 + Math.sin(clock.elapsedTime * 1.4) * 0.12;
+    }
+  });
+  return (
+    <group position={[0, 0, 0.15]}>
+      <mesh position={[0, 0.18, 0]} castShadow>
+        <cylinderGeometry args={[0.28, 0.34, 0.36, 28]} />
+        <meshStandardMaterial color="#f2f0ec" roughness={0.55} metalness={0.08} />
+      </mesh>
+      <mesh position={[0, 0.38, 0]} castShadow>
+        <cylinderGeometry args={[0.48, 0.48, 0.06, 32]} />
+        <meshStandardMaterial color="#f7f5f1" roughness={0.45} metalness={0.1} />
+      </mesh>
+      {/* Yellow ring under tabletop */}
+      <mesh position={[0, 0.34, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.42, 0.028, 12, 48]} />
+        <meshBasicMaterial color="#ffc44a" toneMapped={false} />
+      </mesh>
+      <mesh position={[0.08, 0.44, 0.05]}>
+        <cylinderGeometry args={[0.05, 0.05, 0.08, 12]} />
+        <meshStandardMaterial color="#f8f6f2" roughness={0.5} />
+      </mesh>
+      <mesh position={[0.08, 0.49, 0.05]}>
+        <sphereGeometry args={[0.055, 12, 10]} />
+        <meshStandardMaterial color="#ffffff" roughness={0.35} />
+      </mesh>
+      <pointLight ref={glow} position={[0, 0.5, 0]} intensity={0.9} distance={3.5} color="#ffc45a" />
+    </group>
+  );
+}
+
+function CeilingStar() {
+  const light = useRef<THREE.PointLight>(null);
+  useFrame(({ clock }) => {
+    if (light.current) {
+      light.current.intensity = 0.7 + Math.sin(clock.elapsedTime * 1.1) * 0.15;
+    }
+  });
+  return (
+    <group position={[0, 3.15, -1.85]}>
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.16, 5]} />
+        <meshBasicMaterial color="#ffd266" toneMapped={false} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh rotation={[Math.PI / 2, 0, Math.PI / 5]}>
+        <circleGeometry args={[0.16, 5]} />
+        <meshBasicMaterial color="#ffe08a" toneMapped={false} side={THREE.DoubleSide} />
+      </mesh>
+      <pointLight ref={light} intensity={0.8} distance={6} color="#ffd070" />
+    </group>
+  );
+}
+
+function FloorOvalRing() {
+  return (
+    <group position={[0, 0.015, 0.1]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} scale={[1.35, 1, 1]}>
+        <torusGeometry args={[1.85, 0.035, 12, 64]} />
+        <meshBasicMaterial color="#ffc44a" toneMapped={false} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} scale={[1.35, 1, 1]} position={[0, -0.004, 0]}>
+        <torusGeometry args={[1.85, 0.055, 10, 64]} />
+        <meshBasicMaterial color="#ffb020" transparent opacity={0.35} toneMapped={false} />
+      </mesh>
+    </group>
+  );
+}
+
+function WallShelves() {
+  return (
+    <group position={[-3.15, 1.35, -0.4]}>
+      <mesh position={[0, 0.35, 0]} castShadow>
+        <boxGeometry args={[0.7, 0.07, 0.42]} />
+        <meshStandardMaterial color="#f4f2ee" roughness={0.6} />
+      </mesh>
+      <mesh position={[0, -0.25, 0]} castShadow>
+        <boxGeometry args={[0.7, 0.07, 0.42]} />
+        <meshStandardMaterial color="#f4f2ee" roughness={0.6} />
+      </mesh>
+      {/* Plant */}
+      <mesh position={[-0.08, 0.48, 0]}>
+        <cylinderGeometry args={[0.08, 0.09, 0.12, 12]} />
+        <meshStandardMaterial color="#f7f5f1" roughness={0.55} />
+      </mesh>
+      <mesh position={[-0.08, 0.62, 0]}>
+        <sphereGeometry args={[0.12, 12, 10]} />
+        <meshStandardMaterial color="#6a9a58" roughness={0.85} />
+      </mesh>
+      <mesh position={[-0.02, 0.7, 0.04]}>
+        <sphereGeometry args={[0.08, 10, 8]} />
+        <meshStandardMaterial color="#7aab64" roughness={0.85} />
+      </mesh>
+      {/* Egg decor */}
+      <mesh position={[0.12, -0.05, 0]} scale={[0.7, 1, 0.7]}>
+        <sphereGeometry args={[0.11, 14, 12]} />
+        <meshStandardMaterial color="#ffffff" roughness={0.4} />
+      </mesh>
+    </group>
+  );
+}
+
+function WallDisplay() {
+  return (
+    <group position={[3.05, 1.55, -0.35]} rotation={[0, -Math.PI / 2 + 0.08, 0]}>
+      {/* Flat screen facing room center */}
+      <mesh>
+        <planeGeometry args={[1.15, 0.78]} />
+        <meshBasicMaterial color="#0c1018" toneMapped={false} />
+      </mesh>
+      <mesh position={[0, 0, -0.02]}>
+        <planeGeometry args={[1.22, 0.85]} />
+        <meshStandardMaterial color="#1a1e28" roughness={0.45} metalness={0.15} />
+      </mesh>
+      {/* Yellow frame strips */}
+      <mesh position={[0, 0.41, 0.01]}>
+        <boxGeometry args={[1.2, 0.03, 0.02]} />
+        <meshBasicMaterial color="#ffc44a" toneMapped={false} />
+      </mesh>
+      <mesh position={[0, -0.41, 0.01]}>
+        <boxGeometry args={[1.2, 0.03, 0.02]} />
+        <meshBasicMaterial color="#ffc44a" toneMapped={false} />
+      </mesh>
+      <mesh position={[-0.59, 0, 0.01]}>
+        <boxGeometry args={[0.03, 0.85, 0.02]} />
+        <meshBasicMaterial color="#ffc44a" toneMapped={false} />
+      </mesh>
+      <mesh position={[0.59, 0, 0.01]}>
+        <boxGeometry args={[0.03, 0.85, 0.02]} />
+        <meshBasicMaterial color="#ffc44a" toneMapped={false} />
+      </mesh>
+      <mesh position={[-0.35, 0.18, 0.02]}>
+        <circleGeometry args={[0.055, 5]} />
+        <meshBasicMaterial color="#ffd266" toneMapped={false} />
+      </mesh>
+      <mesh position={[0.2, -0.08, 0.02]}>
+        <circleGeometry args={[0.16, 24]} />
+        <meshBasicMaterial color="#3a6a98" toneMapped={false} />
+      </mesh>
+      <pointLight position={[0, 0, 0.35]} intensity={0.35} distance={2.6} color="#ffc45a" />
+    </group>
+  );
+}
+
+function SpaceViewport() {
+  const stars = useMemo(() => {
+    const pts: [number, number, number][] = [];
+    for (let i = 0; i < 48; i++) {
+      pts.push([
+        (Math.random() - 0.5) * 3.4,
+        (Math.random() - 0.5) * 3.4,
+        0.02,
+      ]);
+    }
+    return pts;
+  }, []);
+
+  return (
+    <group position={[0, 1.55, -3.55]}>
+      {/* Recessed bezel */}
+      <mesh position={[0, 0, -0.04]}>
+        <ringGeometry args={[1.72, 1.95, 48]} />
+        <meshStandardMaterial color="#eceae6" roughness={0.55} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh position={[0, 0, -0.02]}>
+        <ringGeometry args={[1.58, 1.74, 48]} />
+        <meshStandardMaterial color="#f6f4f0" roughness={0.45} side={THREE.DoubleSide} />
+      </mesh>
+      {/* Space plate */}
+      <mesh>
+        <circleGeometry args={[1.7, 48]} />
+        <meshBasicMaterial color="#050814" toneMapped={false} />
+      </mesh>
+      {stars.map((p, i) => (
+        <mesh key={i} position={p}>
+          <circleGeometry args={[0.012 + (i % 3) * 0.006, 8]} />
+          <meshBasicMaterial color="#e8eef8" toneMapped={false} />
+        </mesh>
+      ))}
+      {/* Soft Earth crescent in viewport */}
+      <mesh position={[0.55, -0.15, 0.03]}>
+        <circleGeometry args={[0.72, 32]} />
+        <meshBasicMaterial color="#1a3a68" toneMapped={false} />
+      </mesh>
+      <mesh position={[0.72, -0.05, 0.04]}>
+        <circleGeometry args={[0.55, 32]} />
+        <meshBasicMaterial color="#2a5a88" toneMapped={false} />
+      </mesh>
+      <mesh position={[0.85, 0.1, 0.05]}>
+        <circleGeometry args={[0.22, 20]} />
+        <meshBasicMaterial color="#c8d8e8" toneMapped={false} transparent opacity={0.55} />
       </mesh>
     </group>
   );
 }
 
 function LoungeRoom({ onSeatTap }: { onSeatTap: (id: string) => void }) {
-  const lamp = useRef<THREE.PointLight>(null);
-
-  useFrame(({ clock }) => {
-    if (lamp.current) {
-      lamp.current.intensity = 1.45 + Math.sin(clock.elapsedTime * 0.9) * 0.12;
-    }
-  });
-
   return (
     <group>
-      <color attach="background" args={["#140e0c"]} />
-      <fog attach="fog" args={["#241810", 18, 36]} />
+      <color attach="background" args={["#e8e6e2"]} />
+      <fog attach="fog" args={["#ebe8e4", 14, 28]} />
 
-      <ambientLight intensity={0.62} color="#ffe2c4" />
-      <hemisphereLight args={["#ffe8d0", "#3a2818", 0.5]} />
+      <ambientLight intensity={0.85} color="#fff8ee" />
+      <hemisphereLight args={["#ffffff", "#d8d0c4", 0.55]} />
       <directionalLight
-        position={[8, 8, 4]}
-        intensity={0.7}
-        color="#ffd4a8"
+        position={[4, 7, 3]}
+        intensity={0.55}
+        color="#fff4e4"
         castShadow
       />
-      <pointLight
-        ref={lamp}
-        position={[-1.2, 2.6, -2.4]}
-        intensity={1.5}
-        distance={18}
-        decay={2}
-        color="#ffc078"
-      />
-      <pointLight
-        position={[3.4, 2.0, 1.2]}
-        intensity={0.7}
-        distance={11}
-        color="#ffb878"
-      />
+      <pointLight position={[0, 2.8, 0.5]} intensity={0.7} distance={10} color="#ffe8c8" />
+      <pointLight position={[0, 1.8, -2.8]} intensity={0.45} distance={7} color="#ffd090" />
 
+      {/* Cocoon floor */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]} receiveShadow>
-        <planeGeometry args={[11.8, 9.4]} />
-        <meshStandardMaterial color="#b8956e" roughness={0.92} metalness={0.03} />
+        <circleGeometry args={[4.6, 64]} />
+        <meshStandardMaterial color="#f2f0ec" roughness={0.92} />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.0, 0.15]}>
-        <planeGeometry args={[7.2, 5.6]} />
-        <meshStandardMaterial color="#9a7a58" roughness={0.96} />
-      </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0.15]}>
-        <planeGeometry args={[5.0, 3.8]} />
-        <meshStandardMaterial color="#cbb08a" roughness={1} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.0, 0.05]} receiveShadow>
+        <circleGeometry args={[3.2, 64]} />
+        <meshStandardMaterial color="#f7f5f1" roughness={0.95} />
       </mesh>
 
-      <mesh position={[0, 1.7, -4.72]} receiveShadow>
-        <boxGeometry args={[11.8, 3.5, 0.14]} />
-        <meshStandardMaterial color="#e8d8c0" roughness={0.82} />
+      {/* Inner cocoon shell — open toward +Z camera */}
+      <mesh position={[0, 1.6, -0.2]} rotation={[0, 0, 0]}>
+        <cylinderGeometry args={[4.55, 4.55, 3.6, 48, 1, true, Math.PI * 0.18, Math.PI * 1.64]} />
+        <meshStandardMaterial
+          color="#f4f2ee"
+          roughness={0.88}
+          side={THREE.BackSide}
+        />
       </mesh>
-      <mesh position={[-5.72, 1.7, -0.15]} receiveShadow>
-        <boxGeometry args={[0.14, 3.5, 9.2]} />
-        <meshStandardMaterial color="#e0d0b8" roughness={0.84} />
+      {/* Soft dome ceiling */}
+      <mesh position={[0, 3.35, -0.15]}>
+        <sphereGeometry args={[4.55, 40, 18, 0, Math.PI * 2, 0, Math.PI * 0.42]} />
+        <meshStandardMaterial color="#f6f4f0" roughness={0.9} side={THREE.BackSide} />
       </mesh>
-      <mesh position={[5.72, 1.7, -3.2]} receiveShadow>
-        <boxGeometry args={[0.14, 3.5, 2.8]} />
-        <meshStandardMaterial color="#e0d0b8" roughness={0.84} />
-      </mesh>
-      <mesh position={[-0.3, 0.5, 4.55]} receiveShadow>
-        <boxGeometry args={[10.2, 1.05, 0.12]} />
-        <meshStandardMaterial color="#d8c4a8" roughness={0.85} />
-      </mesh>
-      <mesh position={[0, 3.35, -1.8]}>
-        <boxGeometry args={[11.8, 0.1, 5.4]} />
-        <meshStandardMaterial color="#d4c0a4" roughness={0.9} />
-      </mesh>
-      <mesh position={[0, 3.22, -2.2]}>
-        <boxGeometry args={[7.5, 0.04, 0.22]} />
-        <meshBasicMaterial color="#ffd7a8" toneMapped={false} />
+      {/* Rear bulkhead with viewport recess */}
+      <mesh position={[0, 1.55, -3.72]}>
+        <circleGeometry args={[2.35, 48]} />
+        <meshStandardMaterial color="#efede9" roughness={0.82} side={THREE.DoubleSide} />
       </mesh>
 
-      {/* Window — open to dark space only (no Earth plate) */}
-      <mesh position={[-0.4, 1.65, -4.64]}>
-        <planeGeometry args={[6.4, 2.4]} />
-        <meshBasicMaterial color="#050814" toneMapped={false} />
-      </mesh>
-      {[-2.6, -0.4, 1.8].map((x) => (
-        <mesh key={x} position={[x, 1.65, -4.62]}>
-          <boxGeometry args={[0.07, 2.5, 0.08]} />
-          <meshStandardMaterial
-            color="#8a6a48"
-            roughness={0.55}
-            metalness={0.18}
-          />
-        </mesh>
-      ))}
-      <mesh position={[-0.4, 0.42, -4.25]}>
-        <boxGeometry args={[6.6, 0.12, 0.55]} />
-        <meshStandardMaterial color="#c4a888" roughness={0.7} />
-      </mesh>
+      <SpaceViewport />
+      <CeilingStar />
+      <FloorOvalRing />
+      <GlowingPedestalTable />
+      <WallShelves />
+      <WallDisplay />
 
       {SEATS.map((seat) => (
         <WarmChair key={seat.id} seat={seat} onTap={onSeatTap} />
       ))}
-
-      <mesh position={[4.65, 0.55, -0.35]} castShadow>
-        <boxGeometry args={[0.9, 1.1, 2.4]} />
-        <meshStandardMaterial color="#c4a888" roughness={0.75} />
-      </mesh>
-      <mesh position={[4.5, 1.15, -0.35]}>
-        <boxGeometry args={[0.08, 0.7, 1.5]} />
-        <meshBasicMaterial color="#f0c090" toneMapped={false} />
-      </mesh>
-      <pointLight
-        position={[4.2, 1.2, -0.35]}
-        intensity={0.6}
-        distance={4.5}
-        color="#ffc878"
-      />
-
-      <mesh position={[4.55, 0.35, -3.35]}>
-        <cylinderGeometry args={[0.22, 0.26, 0.7, 16]} />
-        <meshStandardMaterial color="#6a4a32" roughness={0.7} />
-      </mesh>
-      <mesh position={[4.55, 0.85, -3.35]}>
-        <sphereGeometry args={[0.18, 16, 12]} />
-        <meshBasicMaterial color="#ffd090" toneMapped={false} />
-      </mesh>
-      <pointLight
-        position={[4.55, 0.9, -3.35]}
-        intensity={0.85}
-        distance={3.6}
-        color="#ffc070"
-      />
-
-      <mesh position={[-4.55, 0.25, -0.2]}>
-        <cylinderGeometry args={[0.28, 0.32, 0.5, 16]} />
-        <meshStandardMaterial color="#7a5a40" roughness={0.8} />
-      </mesh>
-      <mesh position={[-4.55, 0.62, -0.2]}>
-        <sphereGeometry args={[0.32, 12, 10]} />
-        <meshStandardMaterial color="#5a7a48" roughness={0.9} />
-      </mesh>
     </group>
   );
 }
@@ -757,12 +913,12 @@ export function PodInterior({ visible, onExit, onSittingChange }: Props) {
   const sitting = sitHud.sitting;
 
   return (
-    <div className="absolute inset-0 z-40 animate-fade-in bg-[#140e0c]">
+    <div className="absolute inset-0 z-40 animate-fade-in bg-[#e8e6e2]">
       <Canvas
         className="absolute inset-0 h-full w-full touch-none"
         camera={{
-          position: sitting ? [8, 5, 14] : [9.2, 5.4, 7.4],
-          fov: sitting ? 50 : 42,
+          position: sitting ? [8, 5, 14] : [5.6, 3.9, 4.8],
+          fov: sitting ? 50 : 44,
           near: 0.05,
           far: sitting ? 2500 : 70,
         }}
@@ -770,10 +926,10 @@ export function PodInterior({ visible, onExit, onSittingChange }: Props) {
         dpr={[1, 1.75]}
         shadows={!sitting}
         onCreated={({ gl, camera }) => {
-          gl.setClearColor(new THREE.Color(sitting ? "#05060f" : "#140e0c"));
+          gl.setClearColor(new THREE.Color(sitting ? "#05060f" : "#e8e6e2"));
           gl.toneMapping = THREE.ACESFilmicToneMapping;
-          gl.toneMappingExposure = 1.08;
-          if (!sitting) camera.lookAt(0.2, 0.85, -0.4);
+          gl.toneMappingExposure = 1.05;
+          if (!sitting) camera.lookAt(0, 0.7, -0.6);
         }}
       >
         <LoungeScene
@@ -789,14 +945,14 @@ export function PodInterior({ visible, onExit, onSittingChange }: Props) {
       </Canvas>
 
       {!sitting && (
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#140e0c]/35 via-transparent to-[#140e0c]/15" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#d8d4cc]/25 via-transparent to-white/10" />
       )}
 
       {!sitting && (
         <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-between p-5">
           <div>
-            <p className="font-display text-lg text-[#f3e6d4]">라운지 포드</p>
-            <p className="mt-1 font-sans text-xs text-[#c8b8a0]">
+            <p className="font-display text-lg text-[#2a2a28]">라운지 포드</p>
+            <p className="mt-1 font-sans text-xs text-[#6a6860]">
               걷기 · 의자 탭/E로 앉기
             </p>
           </div>
@@ -818,7 +974,7 @@ export function PodInterior({ visible, onExit, onSittingChange }: Props) {
               <button
                 type="button"
                 onClick={() => setSitRequest((n) => n + 1)}
-                className="pointer-events-auto animate-fade-in rounded-full border border-[#e8d4b8]/45 bg-[#3a2a1c]/85 px-5 py-2.5 font-sans text-sm tracking-wide text-[#f3e6d4] backdrop-blur-sm transition hover:border-[#f3e6d4]/65"
+                className="pointer-events-auto animate-fade-in rounded-full border border-[#ffc44a]/55 bg-[#fff8ea]/9 px-5 py-2.5 font-sans text-sm tracking-wide text-[#3a3428] backdrop-blur-sm transition hover:border-[#ffb020]"
               >
                 앉기
               </button>
@@ -826,7 +982,7 @@ export function PodInterior({ visible, onExit, onSittingChange }: Props) {
             <button
               type="button"
               onClick={onExit}
-              className="pointer-events-auto rounded-full border border-[#e8d4b8]/35 bg-[#2a2018]/8 px-6 py-3 font-sans text-sm tracking-wide text-[#f3e6d4] backdrop-blur-sm transition hover:border-[#f3e6d4]/55 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e8d4b8]"
+              className="pointer-events-auto rounded-full border border-[#c8c4bc]/70 bg-white/85 px-6 py-3 font-sans text-sm tracking-wide text-[#2a2a28] backdrop-blur-sm transition hover:border-[#ffc44a]/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ffc44a]"
             >
               우주로 나가기
             </button>

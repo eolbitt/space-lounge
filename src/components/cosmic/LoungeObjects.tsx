@@ -57,7 +57,8 @@ export const REST_PODS: [number, number, number, number][] = [
 ];
 
 /** Main lounge pod — offset from spawn so the center stays open */
-export const POD_POS: [number, number, number, number] = [16, 0.6, -14, 3.4];
+/** Main lounge pod — white sphere sprite; size reads clearly in lounge */
+export const POD_POS: [number, number, number, number] = [16, 0.8, -14, 4.4];
 
 /** Counter-roll so ringed `planet.png` (baked ~35° tilt) reads upright. */
 const RING_UPRIGHT_ROLL = 0.62;
@@ -250,6 +251,8 @@ export function LoungeObjects() {
           position={[0, 0, 0]}
           size={POD_POS[3]}
           renderOrder={4}
+          alphaTest={0.12}
+          depthWrite={false}
         />
         <pointLight
           position={[0.4, 0.2, 0.8]}
