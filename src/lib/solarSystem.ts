@@ -96,7 +96,8 @@ function buildPlanets(): SolarPlanet[] {
       label: "수성",
       kind: "rocky",
       tex: "dwarf",
-      pos: at(0.5, 38, 42),
+      /** Closer to Earth; still clear of sun disk & Earth body */
+      pos: at(0.84, 28, 30),
       size: B * 1.0,
       color: "#c4b49a",
       reach: 9,
@@ -128,7 +129,8 @@ function buildPlanets(): SolarPlanet[] {
       label: "화성",
       kind: "rocky",
       tex: "red",
-      pos: at(0.64, 34, 36),
+      /** Near-Earth lounge neighbor; clear of Earth & sun */
+      pos: at(0.90, 26, 24),
       size: B * 1.05,
       reach: 11,
       flagLift: B * 0.6,
