@@ -14,6 +14,8 @@ type AstronautProps = {
   facing?: number;
   /** -1 = dive, +1 = climb (Q/E). Independent from facing. */
   tilt?: number;
+  /** Floor walk — step bob instead of float/drift */
+  grounded?: boolean;
 };
 
 /** Billboard sprite — facing mirrors left/right; tilt pitches up/down. */
@@ -23,6 +25,7 @@ export function Astronaut({
   scale = 1,
   facing = 1,
   tilt = 0,
+  grounded = false,
 }: AstronautProps) {
   const textures = useTexture([
     ASTRONAUT_SRC.idle,
@@ -53,11 +56,20 @@ export function Astronaut({
 
   useFrame(({ clock }, delta) => {
     if (!bobRef.current) return;
-    const bob =
-      state === "rest"
-        ? 0
-        : Math.sin(clock.elapsedTime * (state === "move" ? 2.2 : 1.1)) *
-          (state === "move" ? 0.045 : 0.028);
+    let bob = 0;
+    if (state === "rest") {
+      bob = 0;
+    } else if (grounded) {
+      // Planted walk: short step bounce, no idle float
+      bob =
+        state === "move"
+          ? Math.abs(Math.sin(clock.elapsedTime * 7.2)) * 0.028
+          : 0;
+    } else {
+      bob =
+        Math.sin(clock.elapsedTime * (state === "move" ? 2.2 : 1.1)) *
+        (state === "move" ? 0.045 : 0.028);
+    }
     bobRef.current.position.y = bob;
 
     const target = THREE.MathUtils.clamp(tilt, -1, 1);

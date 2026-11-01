@@ -19,6 +19,7 @@ export function CosmicExperience() {
   const [peerCount, setPeerCount] = useState(0);
   const [nearPod, setNearPod] = useState(false);
   const [insidePod, setInsidePod] = useState(false);
+  const [podSitting, setPodSitting] = useState(false);
   const [transport, setTransport] = useState<SyncTransport>("offline");
   const [nearPlanet, setNearPlanet] = useState<PlanetSite | null>(null);
   const [flags, setFlags] = useState<Map<string, PlanetFlag>>(() => new Map());
@@ -67,6 +68,7 @@ export function CosmicExperience() {
   const exitPod = useCallback(() => {
     getPresenceRoom()?.clearLounge();
     setInsidePod(false);
+    setPodSitting(false);
     setAction("drift");
   }, []);
 
@@ -133,9 +135,13 @@ export function CosmicExperience() {
         hearts={hearts}
       />
 
-      <PodInterior visible={insidePod} onExit={exitPod} />
+      <PodInterior
+        visible={insidePod}
+        onExit={exitPod}
+        onSittingChange={setPodSitting}
+      />
       <TouchControls
-        visible={entered}
+        visible={entered && !podSitting}
         walkOnly={insidePod}
         onMoveIntent={insidePod ? undefined : onTouchMoveIntent}
       />
